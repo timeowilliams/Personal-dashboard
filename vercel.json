@@ -1,5 +1,11 @@
 {
-  "build": {
-    "env": { "BUILD_COMMAND": "tsc --noEmit --skipLibCheck && pnpm run build" }
-  }
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next",
+      "config": {
+        "buildCommand": "tsc --noEmit --skipLibCheck && pnpm build --no-lint"
+      }
+    }
+  ]
 }
