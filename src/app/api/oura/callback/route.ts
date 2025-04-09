@@ -1,7 +1,6 @@
 
 // app/api/oura/callback/route.ts
 import { NextResponse } from 'next/server';
-import { validateState } from '@/lib/auth';  // We'll create this
 
 const OURA_TOKEN_URL = 'https://api.ouraring.com/oauth/token';
 
@@ -30,7 +29,7 @@ export async function GET(request: Request) {
         code,
         client_id: process.env.OURA_CLIENT_ID!,
         client_secret: process.env.OURA_CLIENT_SECRET!,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: process.env.NEXT_PUBLIC_APP_URL + '/api/oura/callback',
       }),
     });
 

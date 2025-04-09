@@ -23,8 +23,8 @@ export async function GET(request: Request) {
       detailedSleep,
       heartRate,
       personalInfo,
-      ringConfiguration,  // New: Ring configuration
-      dailySpo2          // New: Daily SpO2
+      ringConfiguration, // New: Ring configuration
+      dailySpo2, // New: Daily SpO2
     ] = await Promise.all([
       fetch(
         `https://api.ouraring.com/v2/usercollection/daily_activity?start_date=${dateStr}&end_date=${dateStr}`,
@@ -66,12 +66,9 @@ export async function GET(request: Request) {
       }).then((res) => res.json()),
 
       // New: Fetch ring configuration
-      fetch(
-        `https://api.ouraring.com/v2/usercollection/ring_configuration`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      ).then((res) => res.json()),
+      fetch(`https://api.ouraring.com/v2/usercollection/ring_configuration`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((res) => res.json()),
 
       // New: Fetch daily SpO2 data
       fetch(
@@ -138,23 +135,29 @@ export async function GET(request: Request) {
       // New: Ring configuration data
       ring: {
         configurations: ringConfiguration.data || [],
-        active_configuration: ringConfiguration.data?.find(
-          (config: any) => config.set_up_at !== null
-        ) || ringConfiguration.data?.[0] || {},
+        active_configuration:
+          ringConfiguration.data?.find(
+            (config: any) => config.set_up_at !== null
+          ) ||
+          ringConfiguration.data?.[0] ||
+          {},
       },
 
       // New: SpO2 data
       spo2: {
         average_percentage: spo2Data.spo2_percentage?.average || null,
-        breathing_disturbance_index: spo2Data.breathing_disturbance_index || null,
+        breathing_disturbance_index:
+          spo2Data.breathing_disturbance_index || null,
       },
     };
 
     return NextResponse.json(formattedData);
   } catch (error) {
     console.error("Error fetching Oura data:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "Failed to fetch Oura data", details: error.message },
+      { error: "Failed to fetch Oura data", details: errorMessage },
       { status: 500 }
     );
   }

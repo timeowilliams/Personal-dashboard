@@ -1,13 +1,26 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+"use client";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import OuraConnect from '@/components/OuraConnect';
-import PlaidConnect from '@/components/PlaidConnect';
-import { 
-  DollarSign, CreditCard, Wallet, Moon, Clock, Droplet, Flame, Apple, Beef, 
-  ChevronsLeft, Ruler, User, Footprints, Scale, Percent 
-} from 'lucide-react';
+import OuraConnect from "@/components/OuraConnect";
+import PlaidConnect from "@/components/PlaidConnect";
+import {
+  DollarSign,
+  CreditCard,
+  Wallet,
+  Moon,
+  Clock,
+  Droplet,
+  Flame,
+  Apple,
+  Beef,
+  ChevronsLeft,
+  Ruler,
+  User,
+  Footprints,
+  Scale,
+  Percent,
+} from "lucide-react";
 
 interface Account {
   id: string;
@@ -56,6 +69,24 @@ interface Transaction {
   date: string;
 }
 
+interface HealthData {
+  timestamp: string;
+  sleep?: number;
+  activity?: number;
+  waterIntake?: number;
+  calories?: number;
+  carbs?: number;
+  protein?: number;
+  fat?: number;
+  steps?: number;
+  weight?: number;
+  bodyFat?: number;
+  waistCircumference?: number;
+  waistDate?: string;
+  weightDate?: string;
+  bodyFatDate?: string;
+}
+
 const Dashboard = () => {
   const { data: session, status } = useSession();
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -69,23 +100,23 @@ const Dashboard = () => {
 
   // Fetch bank accounts and their data
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== "authenticated") return;
 
     const fetchBankAccounts = async () => {
       try {
         setLoading(true);
-        const bankAccountsResponse = await fetch('/api/plaid/bank-accounts', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+        const bankAccountsResponse = await fetch("/api/plaid/bank-accounts", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
         });
         const bankAccountsData = await bankAccountsResponse.json();
         setBankAccounts(bankAccountsData.bankAccounts || []);
 
         const allAccounts: Account[] = [];
         for (const bankAccount of bankAccountsData.bankAccounts || []) {
-          const accountsResponse = await fetch('/api/plaid/accounts', {
-            method: 'GET',
-            headers: { 'Plaid-Access-Token': bankAccount.accessToken },
+          const accountsResponse = await fetch("/api/plaid/accounts", {
+            method: "GET",
+            headers: { "Plaid-Access-Token": bankAccount.accessToken },
           });
           const accountsData = await accountsResponse.json();
           allAccounts.push(...(accountsData.accounts || []));
@@ -97,11 +128,14 @@ const Dashboard = () => {
           await persistAccounts(allAccounts);
         }
 
-        const total = allAccounts.reduce((sum: number, account: Account) => 
-          sum + (account.balances.current || 0), 0);
+        const total = allAccounts.reduce(
+          (sum: number, account: Account) =>
+            sum + (account.balances.current || 0),
+          0
+        );
         setNetWorth(total);
       } catch (error) {
-        console.error('Error fetching bank accounts:', error);
+        console.error("Error fetching bank accounts:", error);
       } finally {
         setLoading(false);
       }
@@ -112,7 +146,7 @@ const Dashboard = () => {
 
   // Fetch today's data (health and posture)
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== "authenticated") return;
 
     const fetchTodayData = async () => {
       try {
@@ -120,23 +154,26 @@ const Dashboard = () => {
         const healthResponse = await fetch(
           `https://backend-production-5eec.up.railway.app/api/v1/health`,
           {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.accessToken}`,
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.accessToken}`,
             },
           }
         );
         if (!healthResponse.ok) {
-          throw new Error(`Health API failed with status ${healthResponse.status}`);
+          throw new Error(
+            `Health API failed with status ${healthResponse.status}`
+          );
         }
         const healthData = await healthResponse.json();
-        console.log('Health API Response:', healthData);
+        console.log("Health API Response:", healthData);
 
         if (healthData.length > 0) {
           // Sort by timestamp to get the latest entry
-          const latestHealth = healthData.sort((a: any, b: any) => 
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          const latestHealth = healthData.sort(
+            (a: HealthData, b: HealthData) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           )[0];
 
           setTodayData({
@@ -158,19 +195,21 @@ const Dashboard = () => {
         }
 
         // Fetch posture data
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
         const postureResponse = await fetch(
           `https://backend-production-5eec.up.railway.app/api/v1/posture?date=${today}`,
           {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.accessToken}`,
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.accessToken}`,
             },
           }
         );
         if (!postureResponse.ok) {
-          throw new Error(`Posture API failed with status ${postureResponse.status}`);
+          throw new Error(
+            `Posture API failed with status ${postureResponse.status}`
+          );
         }
         const postureData = await postureResponse.json();
         if (postureData.length > 0) {
@@ -181,15 +220,17 @@ const Dashboard = () => {
         const financialResponse = await fetch(
           `https://backend-production-5eec.up.railway.app/api/v1/financial?date=${today}`,
           {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.accessToken}`,
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.accessToken}`,
             },
           }
         );
         if (!financialResponse.ok) {
-          throw new Error(`Financial API failed with status ${financialResponse.status}`);
+          throw new Error(
+            `Financial API failed with status ${financialResponse.status}`
+          );
         }
         const financialData = await financialResponse.json();
         const todaySpendingTotal = financialData.transactions.reduce(
@@ -198,7 +239,7 @@ const Dashboard = () => {
         );
         setTodaySpending(todaySpendingTotal);
       } catch (error) {
-        console.error('Error fetching today’s data:', error);
+        console.error("Error fetching todays data:", error);
       }
     };
 
@@ -207,37 +248,40 @@ const Dashboard = () => {
 
   const persistAccounts = async (accountsToPersist: Account[]) => {
     try {
-      const response = await fetch('https://backend-production-5eec.up.railway.app/api/v1/financial/accounts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify({ accounts: accountsToPersist }),
-      });
+      const response = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial/accounts",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          body: JSON.stringify({ accounts: accountsToPersist }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to persist accounts');
+        throw new Error("Failed to persist accounts");
       }
-      console.log('Accounts persisted successfully');
+      console.log("Accounts persisted successfully");
     } catch (error) {
-      console.error('Error persisting accounts:', error);
+      console.error("Error persisting accounts:", error);
     }
   };
 
-  const handlePlaidSuccess = async (token: string) => {
-    const bankAccountsResponse = await fetch('/api/plaid/bank-accounts', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+  const handlePlaidSuccess = async () => {
+    const bankAccountsResponse = await fetch("/api/plaid/bank-accounts", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
     });
     const bankAccountsData = await bankAccountsResponse.json();
     setBankAccounts(bankAccountsData.bankAccounts || []);
 
     const allAccounts: Account[] = [];
     for (const bankAccount of bankAccountsData.bankAccounts || []) {
-      const accountsResponse = await fetch('/api/plaid/accounts', {
-        method: 'GET',
-        headers: { 'Plaid-Access-Token': bankAccount.accessToken },
+      const accountsResponse = await fetch("/api/plaid/accounts", {
+        method: "GET",
+        headers: { "Plaid-Access-Token": bankAccount.accessToken },
       });
       const accountsData = await accountsResponse.json();
       allAccounts.push(...(accountsData.accounts || []));
@@ -249,8 +293,10 @@ const Dashboard = () => {
       await persistAccounts(allAccounts);
     }
 
-    const total = allAccounts.reduce((sum: number, account: Account) => 
-      sum + (account.balances.current || 0), 0);
+    const total = allAccounts.reduce(
+      (sum: number, account: Account) => sum + (account.balances.current || 0),
+      0
+    );
     setNetWorth(total);
   };
 
@@ -258,12 +304,12 @@ const Dashboard = () => {
     setOuraToken(token);
   };
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return <div>Loading...</div>;
   }
 
-  if (status === 'unauthenticated') {
-    console.log('User is not authenticated');
+  if (status === "unauthenticated") {
+    console.log("User is not authenticated");
     return <div>Please log in to view the dashboard.</div>;
   }
 
@@ -277,12 +323,17 @@ const Dashboard = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today’s Spending</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Today&apos;s Spending
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${todaySpending.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                $
+                {todaySpending.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                })}
               </div>
             </CardContent>
           </Card>
@@ -294,7 +345,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.sleep ? todayData.sleep.toFixed(2) : '0.00'} hours
+                {todayData.sleep ? todayData.sleep.toFixed(2) : "0.00"} hours
               </div>
             </CardContent>
           </Card>
@@ -306,7 +357,8 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.activity ? todayData.activity.toFixed(2) : '0.00'} hours
+                {todayData.activity ? todayData.activity.toFixed(2) : "0.00"}{" "}
+                hours
               </div>
             </CardContent>
           </Card>
@@ -318,19 +370,24 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.steps ? todayData.steps.toFixed(0) : '0'}
+                {todayData.steps ? todayData.steps.toFixed(0) : "0"}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Water Intake</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Water Intake
+              </CardTitle>
               <Droplet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.waterIntake ? todayData.waterIntake.toFixed(2) : '0.00'} L
+                {todayData.waterIntake
+                  ? todayData.waterIntake.toFixed(2)
+                  : "0.00"}{" "}
+                L
               </div>
             </CardContent>
           </Card>
@@ -342,7 +399,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.calories ? todayData.calories.toFixed(0) : '0'} kCal
+                {todayData.calories ? todayData.calories.toFixed(0) : "0"} kCal
               </div>
             </CardContent>
           </Card>
@@ -354,7 +411,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.carbs ? todayData.carbs.toFixed(0) : '0'} g
+                {todayData.carbs ? todayData.carbs.toFixed(0) : "0"} g
               </div>
             </CardContent>
           </Card>
@@ -366,7 +423,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.protein ? todayData.protein.toFixed(0) : '0'} g
+                {todayData.protein ? todayData.protein.toFixed(0) : "0"} g
               </div>
             </CardContent>
           </Card>
@@ -378,19 +435,24 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.fat ? todayData.fat.toFixed(0) : '0'} g
+                {todayData.fat ? todayData.fat.toFixed(0) : "0"} g
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Waist Circumference</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Waist Circumference
+              </CardTitle>
               <Ruler className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.waistCircumference ? todayData.waistCircumference.toFixed(1) : '0.0'} in
+                {todayData.waistCircumference
+                  ? todayData.waistCircumference.toFixed(1)
+                  : "0.0"}{" "}
+                in
               </div>
               {todayData.waistDate && (
                 <div className="text-sm text-muted-foreground">
@@ -407,11 +469,15 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.weight ? (todayData.weight * 2.20462).toFixed(1) : '0.0'} lbs
+                {todayData.weight
+                  ? (todayData.weight * 2.20462).toFixed(1)
+                  : "0.0"}{" "}
+                lbs
               </div>
               {todayData.weightDate && (
                 <div className="text-sm text-muted-foreground">
-                  Measured: {new Date(todayData.weightDate).toLocaleDateString()}
+                  Measured:{" "}
+                  {new Date(todayData.weightDate).toLocaleDateString()}
                 </div>
               )}
             </CardContent>
@@ -424,11 +490,12 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayData.bodyFat ? todayData.bodyFat.toFixed(1) : '0.0'}%
+                {todayData.bodyFat ? todayData.bodyFat.toFixed(1) : "0.0"}%
               </div>
               {todayData.bodyFatDate && (
                 <div className="text-sm text-muted-foreground">
-                  Measured: {new Date(todayData.bodyFatDate).toLocaleDateString()}
+                  Measured:{" "}
+                  {new Date(todayData.bodyFatDate).toLocaleDateString()}
                 </div>
               )}
             </CardContent>
@@ -436,12 +503,14 @@ const Dashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Posture Grade</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Posture Grade
+              </CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {todayPosture ? todayPosture.grade : 'N/A'}
+                {todayPosture ? todayPosture.grade : "N/A"}
               </div>
               {todayPosture && (
                 <div className="text-sm text-muted-foreground">
@@ -457,12 +526,17 @@ const Dashboard = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Net Worth
+                  </CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    ${netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    $
+                    {netWorth.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -474,13 +548,13 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {accounts.map(account => (
-                    <div 
-                      key={account.id} 
+                  {accounts.map((account) => (
+                    <div
+                      key={account.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
                     >
                       <div className="flex items-center space-x-4">
-                        {account.type === 'credit' ? (
+                        {account.type === "credit" ? (
                           <CreditCard className="h-6 w-6" />
                         ) : (
                           <Wallet className="h-6 w-6" />
@@ -493,15 +567,19 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <div className="font-medium">
-                        ${account.balances.current?.toLocaleString('en-US', { 
-                          minimumFractionDigits: 2 
+                        $
+                        {account.balances.current?.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
                         })}
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4">
-                  <PlaidConnect onSuccess={handlePlaidSuccess} buttonText="Add Another Account" />
+                  <PlaidConnect
+                    onSuccess={handlePlaidSuccess}
+                    buttonText="Add Another Account"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -525,7 +603,9 @@ const Dashboard = () => {
             {!ouraToken ? (
               <>
                 <div className="text-center space-y-2 mb-4">
-                  <h3 className="text-lg font-medium">Connect Your Oura Ring</h3>
+                  <h3 className="text-lg font-medium">
+                    Connect Your Oura Ring
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Link your Oura Ring to see your health metrics
                   </p>

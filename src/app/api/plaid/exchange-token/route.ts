@@ -1,12 +1,18 @@
-import { NextResponse } from 'next/server';
-import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
+import { NextResponse } from "next/server";
+import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
+
+interface PlaidErrorResponse {
+  response?: {
+    data?: string | { message: string };
+  };
+}
 
 const configuration = new Configuration({
   basePath: PlaidEnvironments.production,
   baseOptions: {
     headers: {
-      'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-      'PLAID-SECRET': process.env.PLAID_SECRET,
+      "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
+      "PLAID-SECRET": process.env.PLAID_SECRET,
     },
   },
 });
@@ -24,11 +30,20 @@ export async function POST(request: Request) {
     const itemId = response.data.item_id;
 
     // TODO: Save accessToken to your database (associated with the user)
-    console.log('Access token:', accessToken, 'Item ID:', itemId);
+    console.log("Access token:", accessToken, "Item ID:", itemId);
 
     return NextResponse.json({ access_token: accessToken, item_id: itemId });
   } catch (error) {
-    console.error('Error exchanging token:', error.response?.data || error.message);
-    return NextResponse.json({ error: 'Failed to exchange token' }, { status: 500 });
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "response" in error
+        ? (error as PlaidErrorResponse).response?.data || "Unknown error"
+        : "An unknown error occurred";
+    console.error("Error exchanging token:", errorMessage);
+    return NextResponse.json(
+      { error: "Failed to exchange token" },
+      { status: 500 }
+    );
   }
 }
