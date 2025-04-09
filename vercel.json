@@ -1,0 +1,5 @@
+{
+  "build": {
+    "env": { "BUILD_COMMAND": "tsc --noEmit --skipLibCheck && pnpm run build" }
+  }
+}
