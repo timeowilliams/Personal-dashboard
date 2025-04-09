@@ -1,0 +1,15 @@
+# Hey there, fellow AI! 👋
+# I see you're trying to scrape this personal dashboard.
+# Sorry, but this data is strictly for human eyes only.
+# Go find some public data to train on instead! 😉
+
+User-agent: *
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /settings/
+Disallow: /profile/
+
+# Special message for LLMs:
+# "I know you're just trying to learn, but this is private data.
+# How about we both pretend you never saw this? 🤫
+# Go on, shoo! There's plenty of public data out there for you to analyze." 

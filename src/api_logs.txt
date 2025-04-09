@@ -1,0 +1,539 @@
+Fetching Oura data for date: 2025-03-13
+{ data: [], next_token: null } {
+  data: [
+    {
+      id: '25ac4dec-b6f5-4321-8974-ff598957beb8',
+      contributors: [Object],
+      day: '2025-03-13',
+      score: 73,
+      timestamp: '2025-03-13T00:00:00+00:00'
+    }
+  ],
+  next_token: null
+} {
+  data: [
+    {
+      id: 'c7ba27bf-5229-430d-a95d-b16db9c0d773',
+      contributors: [Object],
+      day: '2025-03-13',
+      score: 71,
+      temperature_deviation: -0.47,
+      temperature_trend_deviation: -0.14,
+      timestamp: '2025-03-13T00:00:00+00:00'
+    }
+  ],
+  next_token: null
+} { data: [], next_token: null } {
+  data: [
+    {
+      bpm: 98,
+      source: 'workout',
+      timestamp: '2025-03-13T22:05:57+00:00'
+    },
+    {
+      bpm: 98,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:02+00:00'
+    },
+    {
+      bpm: 97,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:07+00:00'
+    },
+    {
+      bpm: 97,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:12+00:00'
+    },
+    {
+      bpm: 98,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:17+00:00'
+    },
+    {
+      bpm: 97,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:22+00:00'
+    },
+    {
+      bpm: 98,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:27+00:00'
+    },
+    {
+      bpm: 99,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:32+00:00'
+    },
+    {
+      bpm: 100,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:37+00:00'
+    },
+    {
+      bpm: 100,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:42+00:00'
+    },
+    {
+      bpm: 98,
+      source: 'workout',
+      timestamp: '2025-03-13T22:06:47+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'awake',
+      timestamp: '2025-03-13T22:29:23+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'awake',
+      timestamp: '2025-03-13T22:29:33+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T22:29:47+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T22:35:00+00:00'
+    },
+    {
+      bpm: 84,
+      source: 'awake',
+      timestamp: '2025-03-13T22:35:04+00:00'
+    },
+    {
+      bpm: 80,
+      source: 'awake',
+      timestamp: '2025-03-13T22:35:05+00:00'
+    },
+    {
+      bpm: 78,
+      source: 'awake',
+      timestamp: '2025-03-13T22:42:30+00:00'
+    },
+    {
+      bpm: 71,
+      source: 'awake',
+      timestamp: '2025-03-13T22:42:31+00:00'
+    },
+    {
+      bpm: 75,
+      source: 'awake',
+      timestamp: '2025-03-13T22:42:40+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'awake',
+      timestamp: '2025-03-13T22:44:27+00:00'
+    },
+    {
+      bpm: 80,
+      source: 'awake',
+      timestamp: '2025-03-13T22:44:34+00:00'
+    },
+    {
+      bpm: 97,
+      source: 'awake',
+      timestamp: '2025-03-13T22:45:04+00:00'
+    },
+    {
+      bpm: 92,
+      source: 'awake',
+      timestamp: '2025-03-13T22:50:15+00:00'
+    },
+    {
+      bpm: 91,
+      source: 'awake',
+      timestamp: '2025-03-13T22:50:18+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'awake',
+      timestamp: '2025-03-13T22:50:19+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'awake',
+      timestamp: '2025-03-13T22:52:36+00:00'
+    },
+    {
+      bpm: 89,
+      source: 'awake',
+      timestamp: '2025-03-13T22:53:06+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T22:54:07+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T22:57:36+00:00'
+    },
+    {
+      bpm: 89,
+      source: 'awake',
+      timestamp: '2025-03-13T22:57:41+00:00'
+    },
+    {
+      bpm: 91,
+      source: 'awake',
+      timestamp: '2025-03-13T22:57:44+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'awake',
+      timestamp: '2025-03-13T23:02:07+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T23:02:08+00:00'
+    },
+    {
+      bpm: 90,
+      source: 'awake',
+      timestamp: '2025-03-13T23:02:17+00:00'
+    },
+    {
+      bpm: 87,
+      source: 'awake',
+      timestamp: '2025-03-13T23:04:35+00:00'
+    },
+    {
+      bpm: 79,
+      source: 'awake',
+      timestamp: '2025-03-13T23:04:37+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'awake',
+      timestamp: '2025-03-13T23:04:56+00:00'
+    },
+    {
+      bpm: 94,
+      source: 'awake',
+      timestamp: '2025-03-13T23:09:45+00:00'
+    },
+    {
+      bpm: 87,
+      source: 'awake',
+      timestamp: '2025-03-13T23:10:19+00:00'
+    },
+    {
+      bpm: 91,
+      source: 'awake',
+      timestamp: '2025-03-13T23:10:20+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'awake',
+      timestamp: '2025-03-13T23:11:51+00:00'
+    },
+    {
+      bpm: 90,
+      source: 'awake',
+      timestamp: '2025-03-13T23:11:54+00:00'
+    },
+    {
+      bpm: 80,
+      source: 'awake',
+      timestamp: '2025-03-13T23:12:24+00:00'
+    },
+    {
+      bpm: 85,
+      source: 'awake',
+      timestamp: '2025-03-13T23:17:26+00:00'
+    },
+    {
+      bpm: 87,
+      source: 'awake',
+      timestamp: '2025-03-13T23:17:41+00:00'
+    },
+    {
+      bpm: 90,
+      source: 'awake',
+      timestamp: '2025-03-13T23:18:50+00:00'
+    },
+    {
+      bpm: 82,
+      source: 'awake',
+      timestamp: '2025-03-13T23:27:59+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'awake',
+      timestamp: '2025-03-13T23:28:02+00:00'
+    },
+    {
+      bpm: 84,
+      source: 'awake',
+      timestamp: '2025-03-13T23:29:01+00:00'
+    },
+    {
+      bpm: 80,
+      source: 'awake',
+      timestamp: '2025-03-13T23:32:51+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'awake',
+      timestamp: '2025-03-13T23:32:52+00:00'
+    },
+    {
+      bpm: 76,
+      source: 'awake',
+      timestamp: '2025-03-13T23:33:17+00:00'
+    },
+    {
+      bpm: 74,
+      source: 'awake',
+      timestamp: '2025-03-13T23:47:22+00:00'
+    },
+    {
+      bpm: 77,
+      source: 'awake',
+      timestamp: '2025-03-13T23:47:30+00:00'
+    },
+    {
+      bpm: 79,
+      source: 'awake',
+      timestamp: '2025-03-13T23:47:34+00:00'
+    },
+    {
+      bpm: 72,
+      source: 'awake',
+      timestamp: '2025-03-14T00:18:39+00:00'
+    },
+    {
+      bpm: 77,
+      source: 'awake',
+      timestamp: '2025-03-14T00:18:42+00:00'
+    },
+    {
+      bpm: 73,
+      source: 'awake',
+      timestamp: '2025-03-14T00:57:36+00:00'
+    },
+    {
+      bpm: 75,
+      source: 'awake',
+      timestamp: '2025-03-14T00:57:52+00:00'
+    },
+    {
+      bpm: 70,
+      source: 'awake',
+      timestamp: '2025-03-14T00:58:55+00:00'
+    },
+    {
+      bpm: 79,
+      source: 'workout',
+      timestamp: '2025-03-14T02:57:57+00:00'
+    },
+    {
+      bpm: 79,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:02+00:00'
+    },
+    {
+      bpm: 80,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:07+00:00'
+    },
+    {
+      bpm: 82,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:12+00:00'
+    },
+    {
+      bpm: 83,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:17+00:00'
+    },
+    {
+      bpm: 85,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:22+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:27+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:32+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:37+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:42+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:47+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:52+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:58:57+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:02+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:07+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:12+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:17+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:22+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:27+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:32+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:37+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:42+00:00'
+    },
+    {
+      bpm: 85,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:47+00:00'
+    },
+    {
+      bpm: 85,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:52+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T02:59:57+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:02+00:00'
+    },
+    {
+      bpm: 86,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:07+00:00'
+    },
+    {
+      bpm: 87,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:12+00:00'
+    },
+    {
+      bpm: 87,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:17+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:22+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:27+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:32+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:37+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:42+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:47+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:52+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:00:57+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:01:02+00:00'
+    },
+    {
+      bpm: 88,
+      source: 'workout',
+      timestamp: '2025-03-14T03:01:07+00:00'
+    },
+    ... 1407 more items
+  ],
+  next_token: null
+} {
+  id: 'bc4866845872323-8487-fcd6b1f606f68-4',
+  age: 29,
+  weight: 68.9,
+  height: 1.7,
+  biological_sex: 'male',
+  email: 'timwillie73@gmail.com'
+}
+ GET /api/oura/data?token=Z7SHQ5ARAOOGF5MBQMF5IW72VZBYNXHQ 200 in 399ms

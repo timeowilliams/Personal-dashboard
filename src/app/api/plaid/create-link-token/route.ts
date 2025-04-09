@@ -1,21 +1,12 @@
-// app/api/plaid/create-link-token/route.ts
-import { NextResponse } from "next/server";
-import {
-  Configuration,
-  PlaidApi,
-  PlaidEnvironments,
-  Products,
-  CountryCode,
-} from "plaid";
-
+import { NextResponse } from 'next/server';
+import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 
 const configuration = new Configuration({
-  basePath: PlaidEnvironments.sandbox,
+  basePath: PlaidEnvironments.production,
   baseOptions: {
     headers: {
-      'Content-Type': 'application/json',
       'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-      'PLAID-SECRET': process.env.PLAID_SANDBOX_SECRET,
+      'PLAID-SECRET': process.env.PLAID_SECRET,
     },
   },
 });
@@ -23,51 +14,22 @@ const configuration = new Configuration({
 const plaidClient = new PlaidApi(configuration);
 
 export async function POST() {
-
-  if (!process.env.PLAID_CLIENT_ID || !process.env.PLAID_SANDBOX_SECRET) {
-    throw new Error('Missing required Plaid environment variables');
-  }
   try {
-
-    console.log('Creating link token with credentials:', {
-      hasClientId: !!process.env.PLAID_CLIENT_ID,
-      hasSecret: !!process.env.PLAID_SANDBOX_SECRET,
-      environment: PlaidEnvironments.sandbox
-    });
-
-
     const requestData = {
-      client_name: "Personal Dashboard",
-      language: "en",
-      user: {
-        client_user_id: "test-user-id"
-      },
-      products: [Products.Auth, Products.Transactions],
-      country_codes: [CountryCode.Us],
+      client_name: 'Personal Dashboard',
+      language: 'en',
+      user: { client_user_id: 'test-user-id' }, // Replace with a unique ID for each user
+      products: ['transactions'], // Only transactions
+      country_codes: ['US'],
     };
 
-    console.log('Making request with:', {
-      base_path: PlaidEnvironments.sandbox,
-      client_id_prefix: process.env.PLAID_CLIENT_ID?.substring(0, 8) + '...',
-      secret_length: process.env.PLAID_SANDBOX_SECRET?.length,
-      request: requestData
-    });
-
+    console.log('Making request with:', requestData);
     const response = await plaidClient.linkTokenCreate(requestData);
-
-    console.log('Successful response:', {
-      link_token_received: !!response.data.link_token,
-      expiration: response.data.expiration,
-      request_id: response.data.request_id
-    });
-
+    console.log('Success:', { link_token: response.data.link_token });
 
     return NextResponse.json(response.data);
   } catch (error) {
-    console.error("Error creating link token:", error);
-    return NextResponse.json(
-      { error: "Failed to create link token" },
-      { status: 500 }
-    );
+    console.error('Error:', error.response?.data || error.message);
+    return NextResponse.json({ error: 'Failed to create link token' }, { status: 500 });
   }
 }

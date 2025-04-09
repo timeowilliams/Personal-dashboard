@@ -17,7 +17,12 @@ declare global {
   }
 }
 
-const PlaidConnect = ({ onSuccess }) => {
+interface PlaidConnectProps {
+  onSuccess: (token: string) => void;
+  buttonText?: string; // Add buttonText prop
+}
+
+const PlaidConnect = ({ onSuccess, buttonText = "Connect Bank Account" }: PlaidConnectProps) => {
   const [loading, setLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
@@ -90,26 +95,13 @@ const PlaidConnect = ({ onSuccess }) => {
         onLoad={() => setScriptLoaded(true)}
       />
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Connect Your Bank</CardTitle>
-          <CardDescription>Connect your bank account to view your financial data</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-sm text-muted-foreground rounded-md bg-muted p-4">
-            <p className="font-medium mb-2">🔑 Test Credentials:</p>
-            <p>Username: user_good</p>
-            <p>Password: pass_good</p>
-          </div>
-          <Button 
-            onClick={handlePlaidConnect} 
-            disabled={loading || !scriptLoaded} 
-            className="w-full"
-          >
-            {loading ? "Connecting..." : "Connect Bank Account"}
-          </Button>
-        </CardContent>
-      </Card>
+      <Button 
+        onClick={handlePlaidConnect} 
+        disabled={loading || !scriptLoaded} 
+        className="w-full"
+      >
+        {loading ? "Connecting..." : buttonText}
+      </Button>
     </>
   );
 };
