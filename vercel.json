@@ -4,7 +4,7 @@
       "src": "package.json",
       "use": "@vercel/next",
       "config": {
-        "buildCommand": "tsc --noEmit --skipLibCheck && pnpm build --no-lint"
+        "buildCommand": "pnpm build"
       }
     }
   ]
