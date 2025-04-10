@@ -7,6 +7,7 @@ import PlaidConnect from "@/components/PlaidConnect";
 import {
   DollarSign,
   CreditCard,
+  Brain,
   Wallet,
   Moon,
   Clock,
@@ -21,71 +22,7 @@ import {
   Scale,
   Percent,
 } from "lucide-react";
-
-interface Account {
-  accountId: string;
-  name: string;
-  balances: {
-    available: number;
-    current: number;
-    iso_currency_code: string;
-  };
-  type: string;
-  subtype: string;
-}
-
-interface BankAccount {
-  _id: string;
-  accessToken: string;
-  institutionName: string;
-}
-
-interface ActivityData {
-  sleep?: number;
-  activity?: number; // In hours, converted from minutes
-  waterIntake?: number;
-  calories?: number;
-  carbs?: number;
-  protein?: number;
-  fat?: number;
-  steps?: number;
-  weight?: number;
-  bodyFat?: number;
-  waistCircumference?: number;
-  waistDate?: string;
-  weightDate?: string;
-  bodyFatDate?: string;
-}
-
-interface PostureData {
-  posture: string;
-  grade: string;
-  score: number;
-  feedback?: string;
-}
-
-interface Transaction {
-  amount: number;
-  date: string;
-}
-
-interface HealthData {
-  timestamp: string;
-  sleep?: number;
-  activity?: number;
-  waterIntake?: number;
-  calories?: number;
-  carbs?: number;
-  protein?: number;
-  fat?: number;
-  steps?: number;
-  weight?: number;
-  bodyFat?: number;
-  waistCircumference?: number;
-  waistDate?: string;
-  weightDate?: string;
-  bodyFatDate?: string;
-}
+import { Account, BankAccount, HealthData, PostureData, ActivityData, Transaction, DeepWorkData } from "@/types";
 
 const Dashboard = () => {
   const { data: session, status } = useSession();
@@ -97,8 +34,38 @@ const Dashboard = () => {
   const [todayData, setTodayData] = useState<ActivityData>({});
   const [todayPosture, setTodayPosture] = useState<PostureData | null>(null);
   const [todaySpending, setTodaySpending] = useState<number>(0);
+  const [todayDeepWorkHours, setTodayDeepWorkHours] = useState<number>(0);
 
-  // In your Dashboard.tsx - just the handlePlaidSuccess function
+
+  const fetchDeepWorkData = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const deepWorkResponse = await fetch(
+        `https://backend-production-5eec.up.railway.app/api/v1/activity?date=${today}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+  
+      if (!deepWorkResponse.ok) {
+        throw new Error(
+          `Activity API failed with status ${deepWorkResponse.status}`
+        );
+      }
+  
+      const deepWorkData: DeepWorkData = await deepWorkResponse.json();
+      console.log("Activity API Response:", deepWorkData);
+  
+      setTodayDeepWorkHours(deepWorkData.totalDeepWorkHours);
+    } catch (error) {
+      console.error("Error fetching activity data:", error);
+      setTodayDeepWorkHours(0);
+    }
+  };
 
   const handlePlaidSuccess = async (publicToken: string, metadata: any) => {
     console.log("Plaid success with institution:", metadata.institution?.name);
@@ -199,6 +166,9 @@ const Dashboard = () => {
 
       // Fetch health data
       await fetchHealthData();
+
+      // Fetch deep work data
+      await fetchDeepWorkData();
     } catch (error) {
       console.error("Error fetching all data:", error);
     } finally {
@@ -447,7 +417,7 @@ const Dashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Today&apos;s Spending
+                Today's Spending
               </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -661,6 +631,18 @@ const Dashboard = () => {
                   Score: {todayPosture.score.toFixed(0)}/100
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Deep Work</CardTitle>
+              <Brain className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {todayDeepWorkHours.toFixed(2)} hours
+              </div>
             </CardContent>
           </Card>
         </div>
