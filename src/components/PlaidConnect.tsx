@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import Script from 'next/script';
 
@@ -18,8 +17,8 @@ declare global {
 }
 
 interface PlaidConnectProps {
-  onSuccess: (token: string) => void;
-  buttonText?: string; // Add buttonText prop
+  onSuccess: (publicToken: string, metadata: any) => void;
+  buttonText?: string;
 }
 
 const PlaidConnect = ({ onSuccess, buttonText = "Connect Bank Account" }: PlaidConnectProps) => {
@@ -29,50 +28,53 @@ const PlaidConnect = ({ onSuccess, buttonText = "Connect Bank Account" }: PlaidC
   const handlePlaidConnect = async () => {
     try {
       setLoading(true);
+      console.log("Requesting Plaid link token...");
+      
       const createResponse = await fetch("/api/plaid/create-link-token", {
         method: "POST",
       });
       
+      if (!createResponse.ok) {
+        throw new Error(`Failed to get link token: ${createResponse.status}`);
+      }
+      
       const data = await createResponse.json();
+      console.log("Making request with:", data);
       
       if (!data.link_token) {
-        throw new Error("Failed to get link token");
+        throw new Error("No link token received from API");
       }
 
       // Initialize Plaid Link
       const plaidHandler = window.Plaid.create({
         token: data.link_token,
-        onSuccess: async (public_token: string, metadata: any) => {
-          try {
-            const exchangeResponse = await fetch("/api/plaid/exchange-token", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ public_token }),
-            });
-            const { access_token } = await exchangeResponse.json();
-            
-            if (access_token) {
-              onSuccess(access_token);
-              toast({
-                title: "Account connected!",
-                description: `Successfully connected to ${metadata.institution?.name}`,
-              });
-            }
-          } catch (error) {
-            console.error("Token exchange error:", error);
+        onSuccess: (public_token: string, metadata: any) => {
+          console.log("Plaid success - Public token:", public_token, "Metadata:", metadata);
+          // Pass the public token to parent component instead of access token
+          onSuccess(public_token, metadata);
+          toast({
+            title: "Account connected!",
+            description: `Successfully connected to ${metadata.institution?.name}`,
+          });
+          setLoading(false);
+        },
+        onExit: (err?: any) => {
+          console.log("Plaid exit:", err || "No error");
+          setLoading(false);
+          
+          if (err) {
             toast({
-              title: "Connection failed",
-              description: "Unable to complete account connection",
+              title: "Connection cancelled",
+              description: "The bank connection process was cancelled",
               variant: "destructive",
             });
-          } finally {
-            setLoading(false);
           }
         },
-        onExit: () => {
-          setLoading(false);
+        onLoad: () => {
+          console.log("Plaid Link loaded");
+        },
+        onEvent: (eventName: string) => {
+          console.log("Plaid event:", eventName);
         },
       });
 
@@ -92,7 +94,18 @@ const PlaidConnect = ({ onSuccess, buttonText = "Connect Bank Account" }: PlaidC
     <>
       <Script 
         src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" 
-        onLoad={() => setScriptLoaded(true)}
+        onLoad={() => {
+          console.log("Plaid script loaded");
+          setScriptLoaded(true);
+        }}
+        onError={() => {
+          console.error("Failed to load Plaid script");
+          toast({
+            title: "Connection unavailable",
+            description: "Could not load bank connection service",
+            variant: "destructive",
+          });
+        }}
       />
       
       <Button 

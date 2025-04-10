@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 interface Account {
-  id: string;
+  accountId: string;
   name: string;
   balances: {
     available: number;
@@ -98,156 +98,293 @@ const Dashboard = () => {
   const [todayPosture, setTodayPosture] = useState<PostureData | null>(null);
   const [todaySpending, setTodaySpending] = useState<number>(0);
 
-  // Fetch bank accounts and their data
-  useEffect(() => {
-    if (status !== "authenticated") return;
+  // In your Dashboard.tsx - just the handlePlaidSuccess function
 
-    const fetchBankAccounts = async () => {
-      try {
-        setLoading(true);
-        const bankAccountsResponse = await fetch("/api/plaid/bank-accounts", {
+  const handlePlaidSuccess = async (publicToken: string, metadata: any) => {
+    console.log("Plaid success with institution:", metadata.institution?.name);
+
+    try {
+      // Step 1: Exchange for access token
+      const exchangeResponse = await fetch("/api/plaid/exchange-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_token: publicToken }),
+      });
+
+      const exchangeData = await exchangeResponse.json();
+      const accessToken = exchangeData.access_token;
+
+      // Step 2: Save or update the bank account
+      const saveBankResponse = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial/save-bank-account",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          body: JSON.stringify({
+            accessToken: accessToken,
+            institutionName: metadata.institution?.name || "Unknown Bank",
+          }),
+        }
+      );
+
+      if (!saveBankResponse.ok) {
+        console.warn("Warning: Failed to save bank account");
+      } else {
+        const saveResult = await saveBankResponse.json();
+        console.log("Bank account save result:", saveResult);
+      }
+
+      // Step 3: Get accounts from Plaid
+      const accountsResponse = await fetch("/api/plaid/get-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: accessToken }),
+      });
+
+      const accountsData = await accountsResponse.json();
+
+      // Step 4: Map and persist accounts
+      if (accountsData.accounts && accountsData.accounts.length > 0) {
+        const mappedAccounts = accountsData.accounts.map((acc) => ({
+          accountId: acc.accountId,
+          name: acc.name,
+          balances: {
+            available:
+              typeof acc.balances.available === "number"
+                ? acc.balances.available
+                : acc.balances.current || 0,
+            current: acc.balances.current || 0,
+            iso_currency_code: acc.balances.iso_currency_code || "USD",
+          },
+          type: acc.type,
+          subtype: acc.subtype,
+        }));
+
+        // Persist accounts
+        const persistResult = await persistAccounts(mappedAccounts);
+
+        if (persistResult) {
+          alert("Bank account connected successfully!");
+
+          // Force page refresh to ensure we load fresh data
+          window.location.reload();
+        } else {
+          alert(
+            "Connected to bank but had trouble saving account details. Please try refreshing the page."
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error in Plaid integration:", error);
+      alert(
+        "There was an error connecting your bank account. Please try again."
+      );
+    }
+  };
+
+  // Function to fetch all data
+  const fetchAllData = async () => {
+    if (status !== "authenticated" || !session?.accessToken) {
+      console.log("Not authenticated");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Fetch financial data
+      await fetchFinancialData();
+
+      // Fetch health data
+      await fetchHealthData();
+    } catch (error) {
+      console.error("Error fetching all data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch financial data
+  const fetchFinancialData = async () => {
+    try {
+      console.log("Fetching financial data");
+      const persistedResponse = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial",
+        {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        const bankAccountsData = await bankAccountsResponse.json();
-        setBankAccounts(bankAccountsData.bankAccounts || []);
-
-        const allAccounts: Account[] = [];
-        for (const bankAccount of bankAccountsData.bankAccounts || []) {
-          const accountsResponse = await fetch("/api/plaid/accounts", {
-            method: "GET",
-            headers: { "Plaid-Access-Token": bankAccount.accessToken },
-          });
-          const accountsData = await accountsResponse.json();
-          allAccounts.push(...(accountsData.accounts || []));
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
         }
+      );
 
-        setAccounts(allAccounts);
+      if (!persistedResponse.ok) {
+        throw new Error(`Fetch failed: ${persistedResponse.status}`);
+      }
 
-        if (allAccounts.length > 0) {
-          await persistAccounts(allAccounts);
-        }
+      const persistedData = await persistedResponse.json();
+      console.log("GET /api/v1/financial response:", persistedData);
 
-        const total = allAccounts.reduce(
-          (sum: number, account: Account) =>
-            sum + (account.balances.current || 0),
+      // Update bank accounts
+      if (persistedData.bankAccounts?.length > 0) {
+        setBankAccounts(persistedData.bankAccounts);
+      }
+
+      // Update accounts
+      if (persistedData.accounts?.length > 0) {
+        const mappedAccounts = persistedData.accounts.map((acc: any) => ({
+          accountId: acc.accountId,
+          name: acc.name,
+          balances: acc.balances,
+          type: acc.type,
+          subtype: acc.subtype,
+        }));
+        console.log("Setting accounts from server:", mappedAccounts);
+        setAccounts(mappedAccounts);
+
+        // Calculate net worth
+        const calculatedNetWorth = mappedAccounts.reduce(
+          (sum: number, acc: Account) => sum + (acc.balances.current || 0),
           0
         );
-        setNetWorth(total);
-      } catch (error) {
-        console.error("Error fetching bank accounts:", error);
-      } finally {
-        setLoading(false);
+        setNetWorth(calculatedNetWorth);
       }
-    };
 
-    fetchBankAccounts();
-  }, [status]);
-
-  // Fetch today's data (health and posture)
-  useEffect(() => {
-    if (status !== "authenticated") return;
-
-    const fetchTodayData = async () => {
-      try {
-        // Remove date filter to get the most recent data regardless of date
-        const healthResponse = await fetch(
-          `https://backend-production-5eec.up.railway.app/api/v1/health`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          }
-        );
-        if (!healthResponse.ok) {
-          throw new Error(
-            `Health API failed with status ${healthResponse.status}`
-          );
+      // Fetch today's spending
+      const today = new Date().toISOString().split("T")[0];
+      const financialResponse = await fetch(
+        `https://backend-production-5eec.up.railway.app/api/v1/financial?date=${today}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
         }
-        const healthData = await healthResponse.json();
-        console.log("Health API Response:", healthData);
+      );
 
-        if (healthData.length > 0) {
-          // Sort by timestamp to get the latest entry
-          const latestHealth = healthData.sort(
-            (a: HealthData, b: HealthData) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          )[0];
-
-          setTodayData({
-            sleep: latestHealth.sleep || 0,
-            activity: (latestHealth.activity || 0) / 60, // Convert minutes to hours
-            waterIntake: latestHealth.waterIntake || 0,
-            calories: latestHealth.calories || 0,
-            carbs: latestHealth.carbs || 0,
-            protein: latestHealth.protein || 0,
-            fat: latestHealth.fat || 0,
-            steps: latestHealth.steps || 0,
-            weight: latestHealth.weight || 0,
-            bodyFat: latestHealth.bodyFat || 0,
-            waistCircumference: latestHealth.waistCircumference || 0,
-            waistDate: latestHealth.waistDate,
-            weightDate: latestHealth.weightDate,
-            bodyFatDate: latestHealth.bodyFatDate,
-          });
-        }
-
-        // Fetch posture data
-        const today = new Date().toISOString().split("T")[0];
-        const postureResponse = await fetch(
-          `https://backend-production-5eec.up.railway.app/api/v1/posture?date=${today}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          }
-        );
-        if (!postureResponse.ok) {
-          throw new Error(
-            `Posture API failed with status ${postureResponse.status}`
-          );
-        }
-        const postureData = await postureResponse.json();
-        if (postureData.length > 0) {
-          setTodayPosture(postureData[0]);
-        }
-
-        // Fetch financial data
-        const financialResponse = await fetch(
-          `https://backend-production-5eec.up.railway.app/api/v1/financial?date=${today}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          }
-        );
-        if (!financialResponse.ok) {
-          throw new Error(
-            `Financial API failed with status ${financialResponse.status}`
-          );
-        }
+      if (financialResponse.ok) {
         const financialData = await financialResponse.json();
-        const todaySpendingTotal = financialData.transactions.reduce(
-          (sum: number, transaction: Transaction) => sum + transaction.amount,
-          0
-        );
-        setTodaySpending(todaySpendingTotal);
-      } catch (error) {
-        console.error("Error fetching todays data:", error);
+        if (financialData.transactions) {
+          const todaySpendingTotal = financialData.transactions.reduce(
+            (sum: number, transaction: Transaction) => sum + transaction.amount,
+            0
+          );
+          setTodaySpending(todaySpendingTotal);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching financial data:", error);
+    }
+  };
 
-    fetchTodayData();
-  }, [status, ouraToken, session]);
+  // Function to fetch health data
+  const fetchHealthData = async () => {
+    try {
+      // Fetch health data
+      const healthResponse = await fetch(
+        `https://backend-production-5eec.up.railway.app/api/v1/health`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+
+      if (!healthResponse.ok) {
+        throw new Error(
+          `Health API failed with status ${healthResponse.status}`
+        );
+      }
+
+      const healthData = await healthResponse.json();
+      console.log("Health API Response:", healthData);
+
+      if (healthData.length > 0) {
+        // Sort by timestamp to get the latest entry
+        const latestHealth = healthData.sort(
+          (a: HealthData, b: HealthData) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0];
+
+        setTodayData({
+          sleep: latestHealth.sleep || 0,
+          activity: (latestHealth.activity || 0) / 60, // Convert minutes to hours
+          waterIntake: latestHealth.waterIntake || 0,
+          calories: latestHealth.calories || 0,
+          carbs: latestHealth.carbs || 0,
+          protein: latestHealth.protein || 0,
+          fat: latestHealth.fat || 0,
+          steps: latestHealth.steps || 0,
+          weight: latestHealth.weight || 0,
+          bodyFat: latestHealth.bodyFat || 0,
+          waistCircumference: latestHealth.waistCircumference || 0,
+          waistDate: latestHealth.waistDate,
+          weightDate: latestHealth.weightDate,
+          bodyFatDate: latestHealth.bodyFatDate,
+        });
+      }
+
+      // Fetch posture data
+      const today = new Date().toISOString().split("T")[0];
+      const postureResponse = await fetch(
+        `https://backend-production-5eec.up.railway.app/api/v1/posture?date=${today}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+
+      if (!postureResponse.ok) {
+        throw new Error(
+          `Posture API failed with status ${postureResponse.status}`
+        );
+      }
+
+      const postureData = await postureResponse.json();
+      if (postureData.length > 0) {
+        setTodayPosture(postureData[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching health data:", error);
+    }
+  };
+
+  // Fetch all data on initial load
+  useEffect(() => {
+    if (status !== "authenticated") {
+      console.log("Not authenticated");
+      return;
+    }
+
+    console.log("Initial fetch with token:", session?.accessToken);
+    fetchAllData();
+  }, [status, session]);
 
   const persistAccounts = async (accountsToPersist: Account[]) => {
     try {
+      const mappedAccounts = accountsToPersist.map((acc) => ({
+        accountId: acc.accountId,
+        name: acc.name,
+        balances: {
+          available: acc.balances.available || acc.balances.current || 0, // Ensure available is set
+          current: acc.balances.current || 0,
+          iso_currency_code: acc.balances.iso_currency_code || "USD",
+        },
+        type: acc.type,
+        subtype: acc.subtype,
+      }));
+
+      console.log("Persisting accounts with proper schema:", mappedAccounts);
+
       const response = await fetch(
         "https://backend-production-5eec.up.railway.app/api/v1/financial/accounts",
         {
@@ -256,52 +393,33 @@ const Dashboard = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.accessToken}`,
           },
-          body: JSON.stringify({ accounts: accountsToPersist }),
+          body: JSON.stringify({ accounts: mappedAccounts }),
         }
       );
 
+      const responseData = await response.json();
+      console.log("Persistence response status:", response.status);
+      console.log("Persistence response data:", responseData);
+
       if (!response.ok) {
-        throw new Error("Failed to persist accounts");
+        throw new Error(
+          `Persistence failed: ${response.status} - ${
+            responseData.message || "No error message"
+          }`
+        );
       }
-      console.log("Accounts persisted successfully");
+
+      return true;
     } catch (error) {
-      console.error("Error persisting accounts:", error);
+      console.error("Persist error:", error);
+      return false;
     }
-  };
-
-  const handlePlaidSuccess = async () => {
-    const bankAccountsResponse = await fetch("/api/plaid/bank-accounts", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
-    const bankAccountsData = await bankAccountsResponse.json();
-    setBankAccounts(bankAccountsData.bankAccounts || []);
-
-    const allAccounts: Account[] = [];
-    for (const bankAccount of bankAccountsData.bankAccounts || []) {
-      const accountsResponse = await fetch("/api/plaid/accounts", {
-        method: "GET",
-        headers: { "Plaid-Access-Token": bankAccount.accessToken },
-      });
-      const accountsData = await accountsResponse.json();
-      allAccounts.push(...(accountsData.accounts || []));
-    }
-
-    setAccounts(allAccounts);
-
-    if (allAccounts.length > 0) {
-      await persistAccounts(allAccounts);
-    }
-
-    const total = allAccounts.reduce(
-      (sum: number, account: Account) => sum + (account.balances.current || 0),
-      0
-    );
-    setNetWorth(total);
   };
 
   const handleOuraSuccess = (token: string) => {
     setOuraToken(token);
+    // Refresh health data when Oura connects
+    fetchHealthData();
   };
 
   if (status === "loading") {
@@ -313,11 +431,16 @@ const Dashboard = () => {
     return <div>Please log in to view the dashboard.</div>;
   }
 
+  // Debug render
+  console.log("Rendering with accounts:", accounts);
+  console.log("Rendering with bankAccounts:", bankAccounts);
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold tracking-tight">Life Dashboard</h1>
+          {loading && <div>Refreshing data...</div>}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -334,6 +457,27 @@ const Dashboard = () => {
                 {todaySpending.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                 })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Checking Account Balance
+              </CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                $
+                {accounts
+                  .filter(
+                    (acc) =>
+                      acc.type === "depository" && acc.subtype === "checking"
+                  )
+                  .reduce((sum, acc) => sum + (acc.balances.current || 0), 0)
+                  .toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -521,7 +665,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {bankAccounts.length > 0 ? (
+        {accounts.length > 0 ? (
           <>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
@@ -550,7 +694,7 @@ const Dashboard = () => {
                 <div className="space-y-4">
                   {accounts.map((account) => (
                     <div
-                      key={account.id}
+                      key={account.accountId}
                       className="flex items-center justify-between p-4 border rounded-lg"
                     >
                       <div className="flex items-center space-x-4">

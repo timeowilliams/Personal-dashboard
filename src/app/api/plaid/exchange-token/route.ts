@@ -1,49 +1,73 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// app/api/plaid/exchange-token/route.ts
 import { NextResponse } from "next/server";
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
-
-interface PlaidErrorResponse {
-  response?: {
-    data?: string | { message: string };
-  };
-}
 
 const configuration = new Configuration({
   basePath: PlaidEnvironments.production,
   baseOptions: {
     headers: {
-      "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
-      "PLAID-SECRET": process.env.PLAID_SECRET,
+      "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID!,
+      "PLAID-SECRET": process.env.PLAID_SECRET!,
     },
   },
 });
 
-const plaidClient = new PlaidApi(configuration);
+const client = new PlaidApi(configuration);
 
 export async function POST(request: Request) {
   try {
     const { public_token } = await request.json();
-    const response = await plaidClient.itemPublicTokenExchange({
+
+    if (!public_token || !public_token.startsWith("public-")) {
+      return NextResponse.json(
+        { error: "Invalid public token format" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Exchanging public token:", public_token);
+
+    if (!public_token) {
+      return NextResponse.json(
+        { error: "No public token provided" },
+        { status: 400 }
+      );
+    }
+
+    const response = await client.itemPublicTokenExchange({
       public_token,
     });
+    console.log("Plaid exchange response:", response.data);
 
-    const accessToken = response.data.access_token;
-    const itemId = response.data.item_id;
-
-    // TODO: Save accessToken to your database (associated with the user)
-    console.log("Access token:", accessToken, "Item ID:", itemId);
-
-    return NextResponse.json({ access_token: accessToken, item_id: itemId });
+    return NextResponse.json({
+      access_token: response.data.access_token,
+      item_id: response.data.item_id,
+    });
   } catch (error) {
     const errorMessage =
       error instanceof Error
         ? error.message
         : typeof error === "object" && error !== null && "response" in error
-        ? (error as PlaidErrorResponse).response?.data || "Unknown error"
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.response as any)?.data?.error_message || "Unknown error"
         : "An unknown error occurred";
-    console.error("Error exchanging token:", errorMessage);
+    const errorCode =
+      typeof error === "object" && error !== null && "response" in error
+        ? (error.response as any)?.data?.error_code || "UNKNOWN"
+        : "UNKNOWN";
     return NextResponse.json(
-      { error: "Failed to exchange token" },
-      { status: 500 }
+      {
+        error: "Failed to exchange token",
+        details: errorMessage,
+        code: errorCode,
+      },
+      {
+        status:
+          typeof error === "object" && error !== null && "response" in error
+            ? (error.response as any)?.status || 500
+            : 500,
+      }
     );
   }
 }
