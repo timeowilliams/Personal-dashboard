@@ -90,6 +90,10 @@ const PlaidConnect = ({ onSuccess, buttonText = "Connect Bank Account" }: PlaidC
     }
   };
 
+  console.log("Button state:", { loading, scriptLoaded });
+
+
+
   return (
     <>
       <Script 
