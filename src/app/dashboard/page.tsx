@@ -1,9 +1,16 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import DashboardLayout from "@/components/DashboardLayout";
+import DashboardCard from "@/components/DashboardCard";
 import OuraConnect from "@/components/OuraConnect";
 import PlaidConnect from "@/components/PlaidConnect";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  evaluateMetric,
+  getGoalValue,
+  formatMetric,
+} from "@/utils/metricsEvaluator";
 import {
   DollarSign,
   CreditCard,
@@ -22,7 +29,33 @@ import {
   Scale,
   Percent,
 } from "lucide-react";
-import { Account, BankAccount, HealthData, PostureData, ActivityData, Transaction, DeepWorkData } from "@/types";
+import {
+  Account,
+  BankAccount,
+  HealthData,
+  PostureData,
+  ActivityData,
+  Transaction,
+  DeepWorkData,
+} from "@/types";
+
+interface PlaidMetadata {
+  institution?: {
+    name: string;
+  };
+}
+
+interface PlaidAccount {
+  accountId: string;
+  name: string;
+  balances: {
+    available: number | null;
+    current: number | null;
+    iso_currency_code: string | null;
+  };
+  type: string;
+  subtype: string;
+}
 
 const Dashboard = () => {
   const { data: session, status } = useSession();
@@ -36,6 +69,47 @@ const Dashboard = () => {
   const [todaySpending, setTodaySpending] = useState<number>(0);
   const [todayDeepWorkHours, setTodayDeepWorkHours] = useState<number>(0);
 
+  // Fetch all data on initial load
+  useEffect(() => {
+    if (status !== "authenticated") {
+      console.log("Not authenticated");
+      return;
+    }
+
+    console.log("Initial fetch with token:", session?.accessToken);
+    fetchAllData();
+  }, [status, session]);
+
+  if (status === "loading") {
+    return (
+      <DashboardLayout title="Life Dashboard" loading={true}>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <DashboardLayout title="Life Dashboard" loading={false}>
+        <div className="glassmorphism-card p-8 text-center">
+          <h2 className="text-2xl font-bold mb-4">Please log in</h2>
+          <p className="mb-6">
+            You need to be logged in to view your dashboard
+          </p>
+          <button className="px-4 py-2 bg-blue-500 text-white rounded-md">
+            Login
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Calculate checking account balance
+  const checkingBalance = accounts
+    .filter((acc) => acc.type === "depository" && acc.subtype === "checking")
+    .reduce((sum, acc) => sum + (acc.balances.current || 0), 0);
 
   const fetchDeepWorkData = async () => {
     try {
@@ -50,16 +124,16 @@ const Dashboard = () => {
           },
         }
       );
-  
+
       if (!deepWorkResponse.ok) {
         throw new Error(
           `Activity API failed with status ${deepWorkResponse.status}`
         );
       }
-  
+
       const deepWorkData: DeepWorkData = await deepWorkResponse.json();
       console.log("Activity API Response:", deepWorkData);
-  
+
       setTodayDeepWorkHours(deepWorkData.totalDeepWorkHours);
     } catch (error) {
       console.error("Error fetching activity data:", error);
@@ -67,7 +141,10 @@ const Dashboard = () => {
     }
   };
 
-  const handlePlaidSuccess = async (publicToken: string, metadata: any) => {
+  const handlePlaidSuccess = async (
+    publicToken: string,
+    metadata: PlaidMetadata
+  ) => {
     console.log("Plaid success with institution:", metadata.institution?.name);
 
     try {
@@ -115,20 +192,22 @@ const Dashboard = () => {
 
       // Step 4: Map and persist accounts
       if (accountsData.accounts && accountsData.accounts.length > 0) {
-        const mappedAccounts = accountsData.accounts.map((acc) => ({
-          accountId: acc.accountId,
-          name: acc.name,
-          balances: {
-            available:
-              typeof acc.balances.available === "number"
-                ? acc.balances.available
-                : acc.balances.current || 0,
-            current: acc.balances.current || 0,
-            iso_currency_code: acc.balances.iso_currency_code || "USD",
-          },
-          type: acc.type,
-          subtype: acc.subtype,
-        }));
+        const mappedAccounts = accountsData.accounts.map(
+          (acc: PlaidAccount) => ({
+            accountId: acc.accountId,
+            name: acc.name,
+            balances: {
+              available:
+                typeof acc.balances.available === "number"
+                  ? acc.balances.available
+                  : acc.balances.current || 0,
+              current: acc.balances.current || 0,
+              iso_currency_code: acc.balances.iso_currency_code || "USD",
+            },
+            type: acc.type,
+            subtype: acc.subtype,
+          })
+        );
 
         // Persist accounts
         const persistResult = await persistAccounts(mappedAccounts);
@@ -205,13 +284,15 @@ const Dashboard = () => {
 
       // Update accounts
       if (persistedData.accounts?.length > 0) {
-        const mappedAccounts = persistedData.accounts.map((acc: any) => ({
-          accountId: acc.accountId,
-          name: acc.name,
-          balances: acc.balances,
-          type: acc.type,
-          subtype: acc.subtype,
-        }));
+        const mappedAccounts = persistedData.accounts.map(
+          (acc: PlaidAccount) => ({
+            accountId: acc.accountId,
+            name: acc.name,
+            balances: acc.balances,
+            type: acc.type,
+            subtype: acc.subtype,
+          })
+        );
         console.log("Setting accounts from server:", mappedAccounts);
         setAccounts(mappedAccounts);
 
@@ -328,17 +409,6 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch all data on initial load
-  useEffect(() => {
-    if (status !== "authenticated") {
-      console.log("Not authenticated");
-      return;
-    }
-
-    console.log("Initial fetch with token:", session?.accessToken);
-    fetchAllData();
-  }, [status, session]);
-
   const persistAccounts = async (accountsToPersist: Account[]) => {
     try {
       const mappedAccounts = accountsToPersist.map((acc) => ({
@@ -392,359 +462,259 @@ const Dashboard = () => {
     fetchHealthData();
   };
 
-  if (status === "loading") {
-    return <div>Loading...</div>;
-  }
-
-  if (status === "unauthenticated") {
-    console.log("User is not authenticated");
-    return <div>Please log in to view the dashboard.</div>;
-  }
-
   // Debug render
   console.log("Rendering with accounts:", accounts);
   console.log("Rendering with bankAccounts:", bankAccounts);
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold tracking-tight">Life Dashboard</h1>
-          {loading && <div>Refreshing data...</div>}
-        </div>
+    <DashboardLayout title="Life Dashboard" loading={loading}>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <DashboardCard
+          title="Today's Spending"
+          value={formatMetric(todaySpending, "currency")}
+          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Today's Spending
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <DashboardCard
+          title="Checking Account Balance"
+          value={formatMetric(checkingBalance, "currency")}
+          icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+
+        <DashboardCard
+          title="Sleep"
+          value={formatMetric(todayData.sleep, "hours")}
+          icon={<Moon className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={evaluateMetric("sleep", todayData.sleep)}
+          goalValue={getGoalValue("sleep") || 0}
+        />
+
+        <DashboardCard
+          title="Activity"
+          value={formatMetric(todayData.activity, "hours")}
+          icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+
+        <DashboardCard
+          title="Steps"
+          value={formatMetric(todayData.steps, "steps")}
+          icon={<Footprints className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+
+        <DashboardCard
+          title="Water Intake"
+          value={formatMetric(todayData.waterIntake, "volume")}
+          icon={<Droplet className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={evaluateMetric("water", todayData.waterIntake)}
+          goalValue={getGoalValue("water") || 0}
+        />
+
+        <DashboardCard
+          title="Calories"
+          value={formatMetric(todayData.calories, "calories")}
+          icon={<Flame className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+
+        <DashboardCard
+          title="Carbs"
+          value={formatMetric(todayData.carbs, "grams")}
+          icon={<Apple className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+
+        <DashboardCard
+          title="Protein"
+          value={formatMetric(todayData.protein, "grams")}
+          icon={<Beef className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={evaluateMetric("protein", todayData.protein)}
+          goalValue={getGoalValue("protein")}
+        />
+
+        <DashboardCard
+          title="Fat"
+          value={formatMetric(todayData.fat, "grams")}
+          icon={<ChevronsLeft className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={evaluateMetric("fat", todayData.fat)}
+          goalValue={getGoalValue("fat")}
+        />
+
+        <DashboardCard
+          title="Waist Circumference"
+          value={formatMetric(todayData.waistCircumference, "distance")}
+          icon={<Ruler className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={
+            todayData.waistDate &&
+            `Measured: ${new Date(todayData.waistDate).toLocaleDateString()}`
+          }
+          status={evaluateMetric("waist", todayData.waistCircumference)}
+          goalValue={getGoalValue("waist")}
+        />
+
+        <DashboardCard
+          title="Weight"
+          value={formatMetric(
+            todayData.weight ? todayData.weight * 2.20462 : 0,
+            "weight"
+          )}
+          icon={<Scale className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={
+            todayData.weightDate &&
+            `Measured: ${new Date(todayData.weightDate).toLocaleDateString()}`
+          }
+          status={evaluateMetric("weight", todayData.weight)}
+          goalValue={getGoalValue("weight")}
+        />
+
+        <DashboardCard
+          title="Body Fat"
+          value={formatMetric(todayData.bodyFat, "percentage")}
+          icon={<Percent className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={
+            todayData.bodyFatDate &&
+            `Measured: ${new Date(todayData.bodyFatDate).toLocaleDateString()}`
+          }
+          status={evaluateMetric("bodyFat", todayData.bodyFat)}
+          goalValue={getGoalValue("bodyFat")}
+        />
+
+        <DashboardCard
+          title="Posture Grade"
+          value={todayPosture ? todayPosture.grade : "N/A"}
+          icon={<User className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={
+            todayPosture && `Score: ${todayPosture.score.toFixed(0)}/100`
+          }
+          status={
+            todayPosture ? evaluateMetric("posture", todayPosture.score) : null
+          }
+          goalValue={getGoalValue("posture")}
+        />
+
+        <DashboardCard
+          title="Deep Work"
+          value={formatMetric(todayDeepWorkHours, "hours")}
+          icon={<Brain className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={evaluateMetric("deepWork", todayDeepWorkHours)}
+          goalValue={getGoalValue("deepWork") || 0}
+        />
+
+        <DashboardCard
+          title="Net Worth"
+          value={formatMetric(netWorth, "currency")}
+          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+          additionalInfo={null}
+          status={null}
+          goalValue={0}
+        />
+      </div>
+      {accounts.length > 0 ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
+            <DashboardCard
+              title="Net Worth"
+              value={formatMetric(netWorth, "currency")}
+              icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+            />
+          </div>
+
+          <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
+            <CardHeader>
+              <CardTitle>Connected Accounts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                $
-                {todaySpending.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Checking Account Balance
-              </CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                $
-                {accounts
-                  .filter(
-                    (acc) =>
-                      acc.type === "depository" && acc.subtype === "checking"
-                  )
-                  .reduce((sum, acc) => sum + (acc.balances.current || 0), 0)
-                  .toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sleep</CardTitle>
-              <Moon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.sleep ? todayData.sleep.toFixed(2) : "0.00"} hours
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Activity</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.activity ? todayData.activity.toFixed(2) : "0.00"}{" "}
-                hours
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Steps</CardTitle>
-              <Footprints className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.steps ? todayData.steps.toFixed(0) : "0"}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Water Intake
-              </CardTitle>
-              <Droplet className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.waterIntake
-                  ? todayData.waterIntake.toFixed(2)
-                  : "0.00"}{" "}
-                L
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Calories</CardTitle>
-              <Flame className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.calories ? todayData.calories.toFixed(0) : "0"} kCal
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Carbs</CardTitle>
-              <Apple className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.carbs ? todayData.carbs.toFixed(0) : "0"} g
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Protein</CardTitle>
-              <Beef className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.protein ? todayData.protein.toFixed(0) : "0"} g
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fat</CardTitle>
-              <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.fat ? todayData.fat.toFixed(0) : "0"} g
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Waist Circumference
-              </CardTitle>
-              <Ruler className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.waistCircumference
-                  ? todayData.waistCircumference.toFixed(1)
-                  : "0.0"}{" "}
-                in
-              </div>
-              {todayData.waistDate && (
-                <div className="text-sm text-muted-foreground">
-                  Measured: {new Date(todayData.waistDate).toLocaleDateString()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Weight</CardTitle>
-              <Scale className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.weight
-                  ? (todayData.weight * 2.20462).toFixed(1)
-                  : "0.0"}{" "}
-                lbs
-              </div>
-              {todayData.weightDate && (
-                <div className="text-sm text-muted-foreground">
-                  Measured:{" "}
-                  {new Date(todayData.weightDate).toLocaleDateString()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Body Fat</CardTitle>
-              <Percent className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayData.bodyFat ? todayData.bodyFat.toFixed(1) : "0.0"}%
-              </div>
-              {todayData.bodyFatDate && (
-                <div className="text-sm text-muted-foreground">
-                  Measured:{" "}
-                  {new Date(todayData.bodyFatDate).toLocaleDateString()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Posture Grade
-              </CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayPosture ? todayPosture.grade : "N/A"}
-              </div>
-              {todayPosture && (
-                <div className="text-sm text-muted-foreground">
-                  Score: {todayPosture.score.toFixed(0)}/100
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Deep Work</CardTitle>
-              <Brain className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {todayDeepWorkHours.toFixed(2)} hours
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {accounts.length > 0 ? (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Net Worth
-                  </CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    $
-                    {netWorth.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Connected Accounts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {accounts.map((account) => (
-                    <div
-                      key={account.accountId}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center space-x-4">
+              <div className="space-y-4">
+                {accounts.map((account) => (
+                  <div
+                    key={account.accountId}
+                    className="flex items-center justify-between p-4 glassmorphism-card bg-white/40 dark:bg-gray-800/40 rounded-lg hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-700">
                         {account.type === "credit" ? (
                           <CreditCard className="h-6 w-6" />
                         ) : (
                           <Wallet className="h-6 w-6" />
                         )}
-                        <div>
-                          <div className="font-medium">{account.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {account.type} • {account.subtype}
-                          </div>
+                      </div>
+                      <div>
+                        <div className="font-medium">{account.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {account.type} • {account.subtype}
                         </div>
                       </div>
-                      <div className="font-medium">
-                        $
-                        {account.balances.current?.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <PlaidConnect
-                    onSuccess={handlePlaidSuccess}
-                    buttonText="Add Another Account"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <Card className="mt-6">
-            <CardContent className="flex flex-col items-center justify-center p-6">
-              <div className="text-center space-y-2 mb-4">
-                <h3 className="text-lg font-medium">Connect Your Accounts</h3>
-                <p className="text-sm text-muted-foreground">
-                  Link your bank accounts to see your financial overview
-                </p>
+                    <div className="font-medium">
+                      $
+                      {account.balances.current?.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <PlaidConnect onSuccess={handlePlaidSuccess} />
+              <div className="mt-4">
+                <PlaidConnect
+                  onSuccess={handlePlaidSuccess}
+                  buttonText="Add Another Account"
+                />
+              </div>
             </CardContent>
           </Card>
-        )}
-
-        <Card className="mt-6">
+        </>
+      ) : (
+        <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
           <CardContent className="flex flex-col items-center justify-center p-6">
-            {!ouraToken ? (
-              <>
-                <div className="text-center space-y-2 mb-4">
-                  <h3 className="text-lg font-medium">
-                    Connect Your Oura Ring
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Link your Oura Ring to see your health metrics
-                  </p>
-                </div>
-                <OuraConnect onSuccess={handleOuraSuccess} />
-              </>
-            ) : (
-              <OuraConnect onSuccess={handleOuraSuccess} />
-            )}
+            <div className="text-center space-y-2 mb-4">
+              <h3 className="text-lg font-medium">Connect Your Accounts</h3>
+              <p className="text-sm text-muted-foreground">
+                Link your bank accounts to see your financial overview
+              </p>
+            </div>
+            <PlaidConnect onSuccess={handlePlaidSuccess} />
           </CardContent>
         </Card>
-      </div>
-    </div>
+      )}
+
+      <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
+        <CardContent className="flex flex-col items-center justify-center p-6">
+          {!ouraToken ? (
+            <>
+              <div className="text-center space-y-2 mb-4">
+                <h3 className="text-lg font-medium">Connect Your Oura Ring</h3>
+                <p className="text-sm text-muted-foreground">
+                  Link your Oura Ring to see your health metrics
+                </p>
+              </div>
+              <OuraConnect onSuccess={handleOuraSuccess} />
+            </>
+          ) : (
+            <OuraConnect onSuccess={handleOuraSuccess} />
+          )}
+        </CardContent>
+      </Card>
+    </DashboardLayout>
   );
 };
 
