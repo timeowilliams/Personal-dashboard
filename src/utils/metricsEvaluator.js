@@ -68,7 +68,7 @@ export const formatMetric = (value, type, decimalPlaces = 2) => {
     case "hours":
       return `${parseFloat(value).toFixed(decimalPlaces)} hours`;
     case "steps":
-      return parseFloat(value).toLocaleString();
+      return parseFloat(value).toFixed(0).toLocaleString();
     case "distance":
       return `${parseFloat(value).toFixed(1)} in`;
     case "volume":

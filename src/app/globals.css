@@ -1,13 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", sans-serif;
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -33,7 +32,10 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --background-start: #ffe5d0;
+    --background-end: #ffcda8;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -59,6 +61,8 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --background-start: #2a2235;
+    --background-end: #421e44;
   }
 }
 
@@ -66,13 +70,61 @@ body {
   * {
     @apply border-border;
   }
+
   body {
+    font-family: var(--font-sans);
+    /* Primary background with gradient overlay and image */
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
+      url("/mountain-background.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: #ffffff;
+    position: relative; /* For the fallback gradient */
     @apply bg-background text-foreground;
   }
+
+  /* Fallback gradient in case image fails to load */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #6366f1, #3b82f6, #0ea5e9);
+    z-index: -1;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.3s ease;
+  }
+
+  /* Show fallback when image fails to load */
+  body.no-bg-image::before {
+    opacity: 1;
+  }
+
+  .dark body {
+    /* Darker overlay for dark mode */
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+      url("/mountain-background.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
 }
+
 @layer components {
   .glassmorphism-card {
-    @apply bg-opacity-20 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-lg;
+    @apply backdrop-blur-lg border shadow-lg rounded-xl;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  }
+
+  .dark .glassmorphism-card {
+    background: rgba(30, 30, 33, 0.65);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -84,33 +136,34 @@ body {
 }
 
 .card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: -1;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05)
+  );
   backdrop-filter: blur(10px);
   border-radius: inherit;
 }
 
 .card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-2px);
 }
 
-body {
-  background-attachment: fixed;
-  background-size: cover;
-  background-image: 
-    radial-gradient(circle at 25% 25%, rgba(63, 94, 251, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(252, 70, 107, 0.05) 0%, transparent 50%);
-}
+/* Remove duplicate font-family declaration */
+/* body {
+  font-family: Arial, sans-serif;
+} */
 
-/* Dark mode adjustments */
-.dark body {
-  background-image: 
-    radial-gradient(circle at 25% 25%, rgba(63, 94, 251, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(252, 70, 107, 0.1) 0%, transparent 50%);
+@media (max-width: 768px) {
+  body {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
+      url("/mountain-background.jpg");
+  }
 }

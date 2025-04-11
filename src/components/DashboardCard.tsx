@@ -36,7 +36,16 @@ const getTooltipContent = (title: string, goalValue: number | null) => {
   return baseContent;
 };
 
-const DashboardCard = ({
+interface DashboardCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  additionalInfo?: string | null;
+  status?: string | null;
+  goalValue: number | null;
+}
+
+const DashboardCard: React.FC<DashboardCardProps> = ({
   title,
   value,
   icon,
@@ -44,45 +53,63 @@ const DashboardCard = ({
   status,
   goalValue,
 }) => {
-  // Determine status color based on value and goal
-  const getStatusColor = () => {
-    if (!status) return "bg-gray-100 dark:bg-gray-800";
+  // Get left border color for status indication
+  const getStatusBorder = () => {
+    if (!status) return "";
 
     switch (status) {
       case "good":
-        return "bg-emerald-100 dark:bg-emerald-900/30";
+        return "border-l-[3px] border-l-emerald-500";
       case "warning":
-        return "bg-amber-100 dark:bg-amber-900/30";
+        return "border-l-[3px] border-l-amber-500";
       case "bad":
-        return "bg-rose-100 dark:bg-rose-900/30";
+        return "border-l-[3px] border-l-rose-500";
       default:
-        return "bg-gray-100 dark:bg-gray-800";
+        return "";
+    }
+  };
+
+  const getCardStyle = () => {
+    const baseStyle =
+      "relative overflow-hidden backdrop-blur-md border border-white/30 hover:shadow-lg transition-all";
+
+    if (!status) return `${baseStyle} bg-white/10 dark:bg-gray-900/40`;
+
+    switch (status) {
+      case "good":
+        return `${baseStyle} bg-gradient-to-br from-black/20 to-emerald-900/30`;
+      case "warning":
+        return `${baseStyle} bg-gradient-to-br from-black/20 to-amber-900/30`;
+      case "bad":
+        return `${baseStyle} bg-gradient-to-br from-black/20 to-rose-900/30`;
+      default:
+        return `${baseStyle} bg-white/10 dark:bg-gray-900/40`;
     }
   };
 
   return (
     <Tooltip content={getTooltipContent(title, goalValue)}>
-      <Card
-        className={`overflow-hidden transition-all hover:shadow-lg ${getStatusColor()}`}
-      >
-        <div className="absolute right-0 top-0 w-20 h-20 backdrop-blur-sm rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 bg-gradient-to-br from-white/30 to-white/10"></div>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <div className="rounded-full p-2 backdrop-blur-sm bg-white/10">
+      <Card className={`${getCardStyle()} ${getStatusBorder()}`}>
+        {/* Decorative element for glassmorphism effect */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl bg-white/20 dark:bg-white/5 pointer-events-none"></div>
+
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-5">
+          <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            {title}
+          </CardTitle>
+          <div className="h-8 w-8 rounded-full bg-white/30 dark:bg-gray-700/30 backdrop-blur-sm flex items-center justify-center">
             {icon}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{value}</div>
+        <CardContent className="pb-5">
+          <div className="text-2xl font-light">{value}</div>
           {additionalInfo && (
-            <div className="text-sm text-muted-foreground">
-              {additionalInfo}
-            </div>
+            <div className="text-xs text-gray-300 mt-1">{additionalInfo}</div>
           )}
-          {goalValue && (
-            <div className="mt-2 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          {goalValue > 0 && (
+            <div className="mt-3 h-1 w-full bg-gray-200/40 dark:bg-gray-700/40 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
+                className="h-full bg-gradient-to-r from-blue-400/80 to-indigo-600/80"
                 style={{
                   width: `${Math.min(
                     (parseFloat(value) / parseFloat(goalValue)) * 100,

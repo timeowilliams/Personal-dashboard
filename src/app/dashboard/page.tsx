@@ -68,6 +68,26 @@ const Dashboard = () => {
   const [todayPosture, setTodayPosture] = useState<PostureData | null>(null);
   const [todaySpending, setTodaySpending] = useState<number>(0);
   const [todayDeepWorkHours, setTodayDeepWorkHours] = useState<number>(0);
+  const [activeCategory, setActiveCategory] = useState("all");
+
+  // Define metric categories
+  const metricCategories = {
+    finances: ["Today's Spending", "Checking Account Balance", "Net Worth"],
+    fitness: ["Activity", "Steps", "Weight", "Body Fat", "Waist Circumference"],
+    nutrition: ["Calories", "Carbs", "Protein", "Fat", "Water Intake"],
+    sleep: ["Sleep"],
+    work: ["Deep Work", "Posture Grade"],
+  };
+
+  // Filter cards based on active category
+  const shouldShowCard = (title: string): boolean => {
+    if (activeCategory === "all") return true;
+    return (
+      metricCategories[
+        activeCategory as keyof typeof metricCategories
+      ]?.includes(title) || false
+    );
+  };
 
   // Fetch all data on initial load
   useEffect(() => {
@@ -466,254 +486,246 @@ const Dashboard = () => {
   console.log("Rendering with accounts:", accounts);
   console.log("Rendering with bankAccounts:", bankAccounts);
 
+  // At the top of your component, define the cards configuration
+  const cardConfigs = [
+    {
+      id: "todaySpending",
+      title: "Today's Spending",
+      value: todaySpending,
+      format: "currency",
+      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "checkingBalance",
+      title: "Checking Account Balance",
+      value: checkingBalance,
+      format: "currency",
+      icon: <Wallet className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "sleep",
+      title: "Sleep",
+      value: todayData.sleep,
+      format: "hours",
+      icon: <Moon className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("sleep", todayData.sleep),
+      goalValue: getGoalValue("sleep") || 0,
+    },
+    {
+      id: "activity",
+      title: "Activity",
+      value: todayData.activity,
+      format: "hours",
+      icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "steps",
+      title: "Steps",
+      value: todayData.steps,
+      format: "steps",
+      icon: <Footprints className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "waterIntake",
+      title: "Water Intake",
+      value: todayData.waterIntake,
+      format: "volume",
+      icon: <Droplet className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("water", todayData.waterIntake),
+      goalValue: getGoalValue("water") || 0,
+    },
+    {
+      id: "calories",
+      title: "Calories",
+      value: todayData.calories,
+      format: "calories",
+      icon: <Flame className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "carbs",
+      title: "Carbs",
+      value: todayData.carbs,
+      format: "grams",
+      icon: <Apple className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      id: "protein",
+      title: "Protein",
+      value: todayData.protein,
+      format: "grams",
+      icon: <Beef className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("protein", todayData.protein),
+      goalValue: getGoalValue("protein") || 0,
+    },
+    {
+      id: "fat",
+      title: "Fat",
+      value: todayData.fat,
+      format: "grams",
+      icon: <ChevronsLeft className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("fat", todayData.fat),
+      goalValue: getGoalValue("fat") || 0,
+    },
+    {
+      id: "waistCircumference",
+      title: "Waist Circumference",
+      value: todayData.waistCircumference,
+      format: "distance",
+      icon: <Ruler className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("waist", todayData.waistCircumference),
+      goalValue: getGoalValue("waist") || 0,
+    },
+    {
+      id: "weight",
+      title: "Weight",
+      value: todayData.weight ? todayData.weight * 2.20462 : 0,
+      format: "weight",
+      icon: <Scale className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("weight", todayData.weight),
+      goalValue: getGoalValue("weight") || 0,
+    },
+    {
+      id: "bodyFat",
+      title: "Body Fat",
+      value: todayData.bodyFat,
+      format: "percentage",
+      icon: <Percent className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("bodyFat", todayData.bodyFat),
+      goalValue: getGoalValue("bodyFat") || 0,
+    },
+    {
+      id: "postureGrade",
+      title: "Posture Grade",
+      value: todayPosture ? todayPosture.grade : "N/A",
+      icon: <User className="h-4 w-4 text-muted-foreground" />,
+      status: todayPosture
+        ? evaluateMetric("posture", todayPosture.score)
+        : null,
+      goalValue: getGoalValue("posture") || 0,
+    },
+    {
+      id: "deepWork",
+      title: "Deep Work",
+      value: todayDeepWorkHours,
+      format: "hours",
+      icon: <Brain className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("deepWork", todayDeepWorkHours),
+      goalValue: getGoalValue("deepWork") || 0,
+    },
+    {
+      id: "netWorth",
+      title: "Net Worth",
+      value: netWorth,
+      format: "currency",
+      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
+    },
+  ];
+
   return (
-    <DashboardLayout title="Life Dashboard" loading={loading}>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard
-          title="Today's Spending"
-          value={formatMetric(todaySpending, "currency")}
-          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Checking Account Balance"
-          value={formatMetric(checkingBalance, "currency")}
-          icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Sleep"
-          value={formatMetric(todayData.sleep, "hours")}
-          icon={<Moon className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={evaluateMetric("sleep", todayData.sleep)}
-          goalValue={getGoalValue("sleep") || 0}
-        />
-
-        <DashboardCard
-          title="Activity"
-          value={formatMetric(todayData.activity, "hours")}
-          icon={<Clock className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Steps"
-          value={formatMetric(todayData.steps, "steps")}
-          icon={<Footprints className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Water Intake"
-          value={formatMetric(todayData.waterIntake, "volume")}
-          icon={<Droplet className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={evaluateMetric("water", todayData.waterIntake)}
-          goalValue={getGoalValue("water") || 0}
-        />
-
-        <DashboardCard
-          title="Calories"
-          value={formatMetric(todayData.calories, "calories")}
-          icon={<Flame className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Carbs"
-          value={formatMetric(todayData.carbs, "grams")}
-          icon={<Apple className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
-
-        <DashboardCard
-          title="Protein"
-          value={formatMetric(todayData.protein, "grams")}
-          icon={<Beef className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={evaluateMetric("protein", todayData.protein)}
-          goalValue={getGoalValue("protein")}
-        />
-
-        <DashboardCard
-          title="Fat"
-          value={formatMetric(todayData.fat, "grams")}
-          icon={<ChevronsLeft className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={evaluateMetric("fat", todayData.fat)}
-          goalValue={getGoalValue("fat")}
-        />
-
-        <DashboardCard
-          title="Waist Circumference"
-          value={formatMetric(todayData.waistCircumference, "distance")}
-          icon={<Ruler className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={
-            todayData.waistDate &&
-            `Measured: ${new Date(todayData.waistDate).toLocaleDateString()}`
-          }
-          status={evaluateMetric("waist", todayData.waistCircumference)}
-          goalValue={getGoalValue("waist")}
-        />
-
-        <DashboardCard
-          title="Weight"
-          value={formatMetric(
-            todayData.weight ? todayData.weight * 2.20462 : 0,
-            "weight"
-          )}
-          icon={<Scale className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={
-            todayData.weightDate &&
-            `Measured: ${new Date(todayData.weightDate).toLocaleDateString()}`
-          }
-          status={evaluateMetric("weight", todayData.weight)}
-          goalValue={getGoalValue("weight")}
-        />
-
-        <DashboardCard
-          title="Body Fat"
-          value={formatMetric(todayData.bodyFat, "percentage")}
-          icon={<Percent className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={
-            todayData.bodyFatDate &&
-            `Measured: ${new Date(todayData.bodyFatDate).toLocaleDateString()}`
-          }
-          status={evaluateMetric("bodyFat", todayData.bodyFat)}
-          goalValue={getGoalValue("bodyFat")}
-        />
-
-        <DashboardCard
-          title="Posture Grade"
-          value={todayPosture ? todayPosture.grade : "N/A"}
-          icon={<User className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={
-            todayPosture && `Score: ${todayPosture.score.toFixed(0)}/100`
-          }
-          status={
-            todayPosture ? evaluateMetric("posture", todayPosture.score) : null
-          }
-          goalValue={getGoalValue("posture")}
-        />
-
-        <DashboardCard
-          title="Deep Work"
-          value={formatMetric(todayDeepWorkHours, "hours")}
-          icon={<Brain className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={evaluateMetric("deepWork", todayDeepWorkHours)}
-          goalValue={getGoalValue("deepWork") || 0}
-        />
-
-        <DashboardCard
-          title="Net Worth"
-          value={formatMetric(netWorth, "currency")}
-          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          additionalInfo={null}
-          status={null}
-          goalValue={0}
-        />
+    <DashboardLayout
+      title="Life Dashboard"
+      loading={loading}
+      activeCategory={activeCategory}
+      setActiveCategory={setActiveCategory}
+    >
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {cardConfigs.map(
+          (config, index) =>
+            shouldShowCard(config.title) && (
+              <DashboardCard
+                key={config.id}
+                className={`floating-card float-delay-${(index % 4) + 1}`}
+                title={config.title}
+                value={formatMetric(config.value, config.format)}
+                icon={config.icon}
+                additionalInfo={config.additionalInfo}
+                status={config.status}
+                goalValue={config.goalValue}
+              />
+            )
+        )}
       </div>
-      {accounts.length > 0 ? (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
-            <DashboardCard
-              title="Net Worth"
-              value={formatMetric(netWorth, "currency")}
-              icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-            />
-          </div>
 
-          <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
-            <CardHeader>
-              <CardTitle>Connected Accounts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {accounts.map((account) => (
-                  <div
-                    key={account.accountId}
-                    className="flex items-center justify-between p-4 glassmorphism-card bg-white/40 dark:bg-gray-800/40 rounded-lg hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-700">
-                        {account.type === "credit" ? (
-                          <CreditCard className="h-6 w-6" />
-                        ) : (
-                          <Wallet className="h-6 w-6" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium">{account.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {account.type} • {account.subtype}
-                        </div>
-                      </div>
+      {(activeCategory === "all" || activeCategory === "finances") &&
+        accounts.length > 0 && (
+          <div className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium">Connected Accounts</h2>
+              <button className="text-xs rounded-full py-1 px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors">
+                View All
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              {accounts.slice(0, 3).map((account) => (
+                <div
+                  key={account.accountId}
+                  className="flex items-center justify-between p-3 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg border border-white/20 dark:border-white/5 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-full bg-white/20 dark:bg-gray-700/30 backdrop-blur-sm">
+                      {account.type === "credit" ? (
+                        <CreditCard className="h-5 w-5" />
+                      ) : (
+                        <Wallet className="h-5 w-5" />
+                      )}
                     </div>
-                    <div className="font-medium">
-                      $
-                      {account.balances.current?.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
+                    <div>
+                      <div className="font-medium text-sm">{account.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {account.type} • {account.subtype}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-              <div className="mt-4">
+                  <div className="font-medium text-sm">
+                    $
+                    {account.balances.current?.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {accounts.length > 3 && (
+                <button className="text-center text-xs text-indigo-500 hover:text-indigo-600 py-2">
+                  Show {accounts.length - 3} more accounts
+                </button>
+              )}
+
+              <div className="mt-3 flex justify-end">
                 <PlaidConnect
                   onSuccess={handlePlaidSuccess}
-                  buttonText="Add Another Account"
+                  buttonText="Add Account"
+                  buttonClassName="text-xs rounded-full py-1.5 px-4 bg-indigo-500/80 text-white hover:bg-indigo-600/80 transition-colors"
                 />
               </div>
-            </CardContent>
-          </Card>
-        </>
-      ) : (
+            </div>
+          </div>
+        )}
+
+      {(activeCategory === "all" ||
+        activeCategory === "sleep" ||
+        activeCategory === "fitness") && (
         <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
           <CardContent className="flex flex-col items-center justify-center p-6">
-            <div className="text-center space-y-2 mb-4">
-              <h3 className="text-lg font-medium">Connect Your Accounts</h3>
-              <p className="text-sm text-muted-foreground">
-                Link your bank accounts to see your financial overview
-              </p>
-            </div>
-            <PlaidConnect onSuccess={handlePlaidSuccess} />
+            {!ouraToken ? (
+              <>
+                <div className="text-center space-y-2 mb-4">
+                  <h3 className="text-lg font-medium">
+                    Connect Your Oura Ring
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Link your Oura Ring to see your health metrics
+                  </p>
+                </div>
+                <OuraConnect onSuccess={handleOuraSuccess} />
+              </>
+            ) : (
+              <OuraConnect onSuccess={handleOuraSuccess} />
+            )}
           </CardContent>
         </Card>
       )}
-
-      <Card className="mt-6 glassmorphism-card bg-white/20 dark:bg-gray-800/20">
-        <CardContent className="flex flex-col items-center justify-center p-6">
-          {!ouraToken ? (
-            <>
-              <div className="text-center space-y-2 mb-4">
-                <h3 className="text-lg font-medium">Connect Your Oura Ring</h3>
-                <p className="text-sm text-muted-foreground">
-                  Link your Oura Ring to see your health metrics
-                </p>
-              </div>
-              <OuraConnect onSuccess={handleOuraSuccess} />
-            </>
-          ) : (
-            <OuraConnect onSuccess={handleOuraSuccess} />
-          )}
-        </CardContent>
-      </Card>
     </DashboardLayout>
   );
 };

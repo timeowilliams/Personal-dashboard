@@ -86,6 +86,9 @@ export default {
           "animation-delay": "4s",
         },
       },
+      fontFamily: {
+        sans: ["var(--font-rubik)", "Arial", "sans-serif"],
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
