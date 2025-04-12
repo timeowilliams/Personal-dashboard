@@ -102,7 +102,12 @@ const Dashboard = () => {
 
   if (status === "loading") {
     return (
-      <DashboardLayout title="Life Dashboard" loading={true}>
+      <DashboardLayout
+        title="Life Dashboard"
+        loading={true}
+        activeCategory="all"
+        setActiveCategory={() => {}} // Empty function since it won't be used
+      >
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full"></div>
         </div>
@@ -265,6 +270,9 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
+      // Add balance refresh before fetching financial data
+      await refreshAccountBalances();
+
       // Fetch financial data
       await fetchFinancialData();
 
@@ -277,6 +285,28 @@ const Dashboard = () => {
       console.error("Error fetching all data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add new function to refresh balances
+  const refreshAccountBalances = async () => {
+    try {
+      const response = await fetch("/api/plaid/refresh-balances", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh balances");
+      }
+
+      const updatedAccounts = await response.json();
+      console.log("Refreshed account balances:", updatedAccounts);
+    } catch (error) {
+      console.error("Error refreshing balances:", error);
     }
   };
 
@@ -682,11 +712,20 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="font-medium text-sm">
-                    $
-                    {account.balances.current?.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                  <div className="flex items-center gap-3">
+                    <div className="font-medium text-sm">
+                      $
+                      {account.balances.current?.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                    <PlaidConnect
+                      onSuccess={handlePlaidSuccess}
+                      buttonText="Refresh"
+                      mode="update"
+                      institutionName={account.name}
+                      buttonClassName="text-xs rounded-full py-1 px-2 bg-gray-500/20 hover:bg-gray-500/30 text-gray-700 dark:text-gray-300"
+                    />
                   </div>
                 </div>
               ))}
