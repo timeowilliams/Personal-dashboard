@@ -3,16 +3,24 @@ import React, { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
 const ThemeToggle = () => {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
-    // Check for saved theme preference or system preference
+    // Set dark mode as default
     const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
-      setIsDark(true);
+
+    // If no saved theme, default to dark
+    if (!savedTheme) {
       document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      // Otherwise use saved preference
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+        setIsDark(true);
+      } else {
+        setIsDark(false);
+      }
     }
   }, []);
 

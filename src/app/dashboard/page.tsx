@@ -112,7 +112,12 @@ const Dashboard = () => {
 
   if (status === "unauthenticated") {
     return (
-      <DashboardLayout title="Life Dashboard" loading={false}>
+      <DashboardLayout
+        title="Life Dashboard"
+        loading={false}
+        activeCategory="all"
+        setActiveCategory={() => {}} // Empty function since it won't be used
+      >
         <div className="glassmorphism-card p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Please log in</h2>
           <p className="mb-6">
@@ -628,7 +633,7 @@ const Dashboard = () => {
       activeCategory={activeCategory}
       setActiveCategory={setActiveCategory}
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cardConfigs.map(
           (config, index) =>
             shouldShowCard(config.title) && (
@@ -648,8 +653,8 @@ const Dashboard = () => {
 
       {(activeCategory === "all" || activeCategory === "finances") &&
         accounts.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mt-6 sm:mt-10">
+            <div className="flex items-center justify-between mb-4 px-2 sm:px-0">
               <h2 className="text-lg font-medium">Connected Accounts</h2>
               <button className="text-xs rounded-full py-1 px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors">
                 View All

@@ -1,8 +1,8 @@
 // components/DashboardLayout.jsx
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Sidebar from "./Sidebar";
-import { Bell, Sun, Moon } from "lucide-react";
+import { Bell, Sun, Moon, Menu, X } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import BackgroundAnimation from "./BackgroundAnimation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,21 +23,51 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   setActiveCategory,
 }) => {
   const { user, isAuthenticated } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen">
       <BackgroundAnimation />
-      <Sidebar
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
-      />
 
-      <div className="flex-1 p-6 overflow-y-auto">
-        <header className="relative glassmorphism-card px-6 py-4 rounded-xl mb-8">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white/20 backdrop-blur-sm"
+      >
+        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Sidebar - Mobile & Desktop */}
+      <div
+        className={`
+        fixed lg:static z-40 w-64 h-screen transform transition-transform duration-300 ease-in-out
+        ${
+          isMobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
+        }
+      `}
+      >
+        <Sidebar
+          activeCategory={activeCategory}
+          setActiveCategory={setActiveCategory}
+        />
+      </div>
+
+      {/* Overlay for mobile menu */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm lg:hidden z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
+        <header className="relative glassmorphism-card px-4 lg:px-6 py-4 rounded-xl mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl"></div>
           <div className="flex items-center justify-between relative">
             <div>
-              <h1 className="text-2xl font-medium">
+              <h1 className="text-xl lg:text-2xl font-medium">
                 {isAuthenticated ? `${user?.name}'s ${title}` : title}
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -63,7 +93,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </ThemeToggle>
 
               {isAuthenticated && (
-                <div className="flex items-center gap-2 ml-2">
+                <div className="hidden lg:flex items-center gap-2 ml-2">
                   {user?.image && (
                     <img
                       src={user.image}
