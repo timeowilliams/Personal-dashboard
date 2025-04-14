@@ -105,6 +105,25 @@ const Dashboard = () => {
     );
   };
 
+  // First, let's define which charts belong to which categories
+  const chartCategories = {
+    finances: [], // Currently no financial charts, but can be added later
+    fitness: ["Steps", "Waist Circumference", "Body Fat Percentage"],
+    sleep: ["Sleep Hours"],
+    work: ["Deep Work Hours"],
+  };
+
+  // Add this helper function to check if a chart should be shown
+  const shouldShowChart = (metricTitle: string): boolean => {
+    if (activeCategory === "all") return true;
+
+    return (
+      chartCategories[activeCategory as keyof typeof chartCategories]?.includes(
+        metricTitle
+      ) || false
+    );
+  };
+
   // Fetch all data on initial load
   useEffect(() => {
     const loadData = async () => {
@@ -381,9 +400,20 @@ const Dashboard = () => {
         console.log("Setting accounts:", financialData.accounts);
         setAccounts(financialData.accounts);
 
-        // Calculate net worth
+        // Calculate net worth with proper handling of credit accounts
         const calculatedNetWorth = financialData.accounts.reduce(
-          (sum: number, acc: Account) => sum + (acc.balances.current || 0),
+          (sum: number, acc: Account) => {
+            const balance = acc.balances.current || 0;
+            const contribution = acc.type === "credit" ? -balance : balance;
+
+            console.log(
+              `Account ${acc.name} (${acc.type}): ${
+                contribution > 0 ? "+" : ""
+              }${contribution}`
+            );
+
+            return sum + contribution;
+          },
           0
         );
         setNetWorth(calculatedNetWorth);
@@ -788,31 +818,41 @@ const Dashboard = () => {
 
       {/* Add charts section */}
       <div className="mt-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <MetricsChart
-          data={historicalData}
-          title="Sleep Hours"
-          metric="sleep"
-        />
-        <MetricsChart
-          data={historicalData}
-          title="Deep Work Hours"
-          metric="deepWork"
-        />
-        <MetricsChart
-          data={historicalData}
-          title="Waist Circumference"
-          metric="waistCircumference"
-        />
-        <MetricsChart
-          data={historicalData}
-          title="Body Fat Percentage"
-          metric="bodyFat"
-        />
-        <MetricsChart
-          data={historicalData}
-          title="Daily Steps"
-          metric="steps"
-        />
+        {shouldShowChart("Sleep Hours") && (
+          <MetricsChart
+            data={historicalData}
+            title="Sleep Hours"
+            metric="sleep"
+          />
+        )}
+        {shouldShowChart("Deep Work Hours") && (
+          <MetricsChart
+            data={historicalData}
+            title="Deep Work Hours"
+            metric="deepWork"
+          />
+        )}
+        {shouldShowChart("Waist Circumference") && (
+          <MetricsChart
+            data={historicalData}
+            title="Waist Circumference"
+            metric="waistCircumference"
+          />
+        )}
+        {shouldShowChart("Body Fat Percentage") && (
+          <MetricsChart
+            data={historicalData}
+            title="Body Fat Percentage"
+            metric="bodyFat"
+          />
+        )}
+        {shouldShowChart("Steps") && (
+          <MetricsChart
+            data={historicalData}
+            title="Daily Steps"
+            metric="steps"
+          />
+        )}
       </div>
 
       {(activeCategory === "all" || activeCategory === "finances") && (
