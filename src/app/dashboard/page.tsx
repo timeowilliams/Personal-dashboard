@@ -441,32 +441,6 @@ const Dashboard = () => {
   // Function to fetch health data
   const fetchHealthData = async () => {
     try {
-      // Check cache first
-      const cachedHealth = cacheUtils.get<HealthData[]>("healthData");
-      if (cachedHealth) {
-        console.log("Using cached health data");
-        if (cachedHealth.length > 0) {
-          const latestHealth = cachedHealth[0];
-          setTodayData({
-            sleep: latestHealth.sleep || 0,
-            activity: (latestHealth.activity || 0) / 60,
-            waterIntake: latestHealth.waterIntake || 0,
-            calories: latestHealth.calories || 0,
-            carbs: latestHealth.carbs || 0,
-            protein: latestHealth.protein || 0,
-            fat: latestHealth.fat || 0,
-            steps: latestHealth.steps || 0,
-            weight: latestHealth.weight || 0,
-            bodyFat: latestHealth.bodyFat || 0,
-            waistCircumference: latestHealth.waistCircumference || 0,
-            waistDate: latestHealth.waistDate,
-            weightDate: latestHealth.weightDate,
-            bodyFatDate: latestHealth.bodyFatDate,
-          });
-          return;
-        }
-      }
-
       const healthResponse = await fetch(
         `https://backend-production-5eec.up.railway.app/api/v1/health`,
         {
@@ -485,27 +459,51 @@ const Dashboard = () => {
       }
 
       const healthData = await healthResponse.json();
-      // Cache the response
-      cacheUtils.set("healthData", healthData);
 
       if (healthData.length > 0) {
-        const latestHealth = healthData[0];
-        setTodayData({
-          sleep: latestHealth.sleep || 0,
-          activity: (latestHealth.activity || 0) / 60,
-          waterIntake: latestHealth.waterIntake || 0,
-          calories: latestHealth.calories || 0,
-          carbs: latestHealth.carbs || 0,
-          protein: latestHealth.protein || 0,
-          fat: latestHealth.fat || 0,
-          steps: latestHealth.steps || 0,
-          weight: latestHealth.weight || 0,
-          bodyFat: latestHealth.bodyFat || 0,
-          waistCircumference: latestHealth.waistCircumference || 0,
-          waistDate: latestHealth.waistDate,
-          weightDate: latestHealth.weightDate,
-          bodyFatDate: latestHealth.bodyFatDate,
-        });
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split("T")[0];
+
+        // Find the most recent entry for today
+        const todayEntry = healthData.find((entry) =>
+          entry.timestamp.startsWith(today)
+        );
+
+        if (todayEntry) {
+          console.log("Found today's health data:", todayEntry);
+          setTodayData({
+            sleep: todayEntry.sleep || 0,
+            activity: (todayEntry.activity || 0) / 60,
+            waterIntake: todayEntry.waterIntake || 0,
+            calories: todayEntry.calories || 0,
+            carbs: todayEntry.carbs || 0,
+            protein: todayEntry.protein || 0,
+            fat: todayEntry.fat || 0,
+            steps: todayEntry.steps || 0,
+            weight: todayEntry.weight || 0,
+            bodyFat: todayEntry.bodyFat || 0,
+            waistCircumference: todayEntry.waistCircumference || 0,
+            waistDate: todayEntry.waistDate,
+            weightDate: todayEntry.weightDate,
+            bodyFatDate: todayEntry.bodyFatDate,
+          });
+        } else {
+          console.log("No health data found for today");
+          // Optionally, you could set default values or show a message
+          setTodayData({
+            sleep: 0,
+            activity: 0,
+            waterIntake: 0,
+            calories: 0,
+            carbs: 0,
+            protein: 0,
+            fat: 0,
+            steps: 0,
+            weight: 0,
+            bodyFat: 0,
+            waistCircumference: 0,
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching health data:", error);
