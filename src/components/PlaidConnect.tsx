@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import Script from "next/script";
+import { Loader2 } from "lucide-react";
 
 declare global {
   interface Window {
@@ -33,6 +34,12 @@ const PlaidConnect = ({
 }: PlaidConnectProps) => {
   const [loading, setLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  useEffect(() => {
+    if (window.Plaid) {
+      setScriptLoaded(true);
+    }
+  }, []);
 
   const handlePlaidConnect = async () => {
     try {
@@ -123,13 +130,16 @@ const PlaidConnect = ({
   return (
     <>
       <Script
+        strategy="afterInteractive"
         src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"
         onLoad={() => {
           console.log("Plaid script loaded");
-          setScriptLoaded(true);
+          if (window.Plaid) {
+            setScriptLoaded(true);
+          }
         }}
-        onError={() => {
-          console.error("Failed to load Plaid script");
+        onError={(e) => {
+          console.error("Failed to load Plaid script:", e);
           toast({
             title: "Connection unavailable",
             description: "Could not load bank connection service",
@@ -146,7 +156,19 @@ const PlaidConnect = ({
           "px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
         }
       >
-        {loading ? "Connecting..." : buttonText}
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Connecting...
+          </>
+        ) : !scriptLoaded ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading...
+          </>
+        ) : (
+          buttonText
+        )}
       </Button>
     </>
   );

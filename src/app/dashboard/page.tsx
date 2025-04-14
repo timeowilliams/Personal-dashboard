@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import DashboardCard from "@/components/DashboardCard";
 import OuraConnect from "@/components/OuraConnect";
 import PlaidConnect from "@/components/PlaidConnect";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   evaluateMetric,
   getGoalValue,
@@ -35,9 +35,10 @@ import {
   HealthData,
   PostureData,
   ActivityData,
-  Transaction,
   DeepWorkData,
 } from "@/types";
+import { cacheUtils } from "../../utils/cache";
+import MetricsChart from "@/components/MetricsChart";
 
 interface PlaidMetadata {
   institution?: {
@@ -57,6 +58,20 @@ interface PlaidAccount {
   subtype: string;
 }
 
+interface HistoricalData {
+  date: string;
+  sleep?: number;
+  deepWork?: number;
+  waistCircumference?: number;
+  bodyFat?: number;
+  steps?: number;
+}
+
+interface Transaction {
+  date: string;
+  amount: number;
+}
+
 const Dashboard = () => {
   const { data: session, status } = useSession();
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -69,6 +84,7 @@ const Dashboard = () => {
   const [todaySpending, setTodaySpending] = useState<number>(0);
   const [todayDeepWorkHours, setTodayDeepWorkHours] = useState<number>(0);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
 
   // Define metric categories
   const metricCategories = {
@@ -91,14 +107,31 @@ const Dashboard = () => {
 
   // Fetch all data on initial load
   useEffect(() => {
-    if (status !== "authenticated") {
-      console.log("Not authenticated");
-      return;
-    }
+    const loadData = async () => {
+      if (status === "authenticated" && session?.accessToken) {
+        console.log("Starting initial data load");
+        setLoading(true);
+        try {
+          // Fetch all data in parallel
+          await Promise.all([
+            refreshAccountBalances(),
+            fetchFinancialData(),
+            fetchHealthData(),
+            fetchPostureData(),
+            fetchDeepWorkData(),
+            fetchHistoricalData(),
+          ]);
+          console.log("Initial data load complete");
+        } catch (error) {
+          console.error("Error in initial data load:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
 
-    console.log("Initial fetch with token:", session?.accessToken);
-    fetchAllData();
-  }, [status, session]);
+    loadData();
+  }, [status, session?.accessToken]);
 
   if (status === "loading") {
     return (
@@ -144,6 +177,16 @@ const Dashboard = () => {
   const fetchDeepWorkData = async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
+      const cacheKey = `deepWork-${today}`;
+
+      // Check cache first
+      const cachedDeepWork = cacheUtils.get<DeepWorkData>(cacheKey);
+      if (cachedDeepWork) {
+        console.log("Using cached deep work data");
+        setTodayDeepWorkHours(cachedDeepWork.totalDeepWorkHours);
+        return;
+      }
+
       const deepWorkResponse = await fetch(
         `https://backend-production-5eec.up.railway.app/api/v1/activity?date=${today}`,
         {
@@ -161,12 +204,11 @@ const Dashboard = () => {
         );
       }
 
-      const deepWorkData: DeepWorkData = await deepWorkResponse.json();
-      console.log("Activity API Response:", deepWorkData);
-
+      const deepWorkData = await deepWorkResponse.json();
+      cacheUtils.set(cacheKey, deepWorkData);
       setTodayDeepWorkHours(deepWorkData.totalDeepWorkHours);
     } catch (error) {
-      console.error("Error fetching activity data:", error);
+      console.error("Error fetching deep work data:", error);
       setTodayDeepWorkHours(0);
     }
   };
@@ -261,33 +303,6 @@ const Dashboard = () => {
     }
   };
 
-  // Function to fetch all data
-  const fetchAllData = async () => {
-    if (status !== "authenticated" || !session?.accessToken) {
-      console.log("Not authenticated");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Add balance refresh before fetching financial data
-      await refreshAccountBalances();
-
-      // Fetch financial data
-      await fetchFinancialData();
-
-      // Fetch health data
-      await fetchHealthData();
-
-      // Fetch deep work data
-      await fetchDeepWorkData();
-    } catch (error) {
-      console.error("Error fetching all data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Add new function to refresh balances
   const refreshAccountBalances = async () => {
     try {
@@ -313,8 +328,36 @@ const Dashboard = () => {
   // Function to fetch financial data
   const fetchFinancialData = async () => {
     try {
-      console.log("Fetching financial data");
-      const persistedResponse = await fetch(
+      console.log(
+        "Starting to fetch financial data with token:",
+        session?.accessToken?.substring(0, 20) + "..."
+      );
+
+      // First, fetch bank accounts
+      const bankAccountsResponse = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial/bank-accounts",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+
+      console.log(
+        "Bank accounts response status:",
+        bankAccountsResponse.status
+      );
+
+      if (bankAccountsResponse.ok) {
+        const bankAccountsData = await bankAccountsResponse.json();
+        console.log("Raw bank accounts data:", bankAccountsData);
+        setBankAccounts(bankAccountsData.bankAccounts || []);
+      }
+
+      // Then, fetch financial data
+      const financialResponse = await fetch(
         "https://backend-production-5eec.up.railway.app/api/v1/financial",
         {
           method: "GET",
@@ -325,72 +368,75 @@ const Dashboard = () => {
         }
       );
 
-      if (!persistedResponse.ok) {
-        throw new Error(`Fetch failed: ${persistedResponse.status}`);
+      console.log("Financial response status:", financialResponse.status);
+
+      if (!financialResponse.ok) {
+        throw new Error(`Financial fetch failed: ${financialResponse.status}`);
       }
 
-      const persistedData = await persistedResponse.json();
-      console.log("GET /api/v1/financial response:", persistedData);
+      const financialData = await financialResponse.json();
+      console.log("Raw financial data:", financialData);
 
-      // Update bank accounts
-      if (persistedData.bankAccounts?.length > 0) {
-        setBankAccounts(persistedData.bankAccounts);
-      }
-
-      // Update accounts
-      if (persistedData.accounts?.length > 0) {
-        const mappedAccounts = persistedData.accounts.map(
-          (acc: PlaidAccount) => ({
-            accountId: acc.accountId,
-            name: acc.name,
-            balances: acc.balances,
-            type: acc.type,
-            subtype: acc.subtype,
-          })
-        );
-        console.log("Setting accounts from server:", mappedAccounts);
-        setAccounts(mappedAccounts);
+      if (financialData.accounts && Array.isArray(financialData.accounts)) {
+        console.log("Setting accounts:", financialData.accounts);
+        setAccounts(financialData.accounts);
 
         // Calculate net worth
-        const calculatedNetWorth = mappedAccounts.reduce(
+        const calculatedNetWorth = financialData.accounts.reduce(
           (sum: number, acc: Account) => sum + (acc.balances.current || 0),
           0
         );
         setNetWorth(calculatedNetWorth);
+      } else {
+        console.warn("No accounts array in financial data:", financialData);
       }
 
-      // Fetch today's spending
-      const today = new Date().toISOString().split("T")[0];
-      const financialResponse = await fetch(
-        `https://backend-production-5eec.up.railway.app/api/v1/financial?date=${today}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
-      );
-
-      if (financialResponse.ok) {
-        const financialData = await financialResponse.json();
-        if (financialData.transactions) {
-          const todaySpendingTotal = financialData.transactions.reduce(
-            (sum: number, transaction: Transaction) => sum + transaction.amount,
-            0
-          );
-          setTodaySpending(todaySpendingTotal);
-        }
+      // Handle today's transactions for spending
+      if (Array.isArray(financialData.transactions)) {
+        const today = new Date().toISOString().split("T")[0];
+        const todayTransactions = financialData.transactions.filter(
+          (t: Transaction) => t.date?.startsWith(today)
+        );
+        const todaySpendingTotal = todayTransactions.reduce(
+          (sum: number, t: Transaction) => sum + (t.amount || 0),
+          0
+        );
+        setTodaySpending(todaySpendingTotal);
       }
     } catch (error) {
-      console.error("Error fetching financial data:", error);
+      console.error("Error in fetchFinancialData:", error);
     }
   };
 
   // Function to fetch health data
   const fetchHealthData = async () => {
     try {
-      // Fetch health data
+      // Check cache first
+      const cachedHealth = cacheUtils.get<HealthData[]>("healthData");
+      if (cachedHealth) {
+        console.log("Using cached health data");
+        if (cachedHealth.length > 0) {
+          const latestHealth = cachedHealth[0];
+          setTodayData({
+            sleep: latestHealth.sleep || 0,
+            activity: (latestHealth.activity || 0) / 60,
+            waterIntake: latestHealth.waterIntake || 0,
+            calories: latestHealth.calories || 0,
+            carbs: latestHealth.carbs || 0,
+            protein: latestHealth.protein || 0,
+            fat: latestHealth.fat || 0,
+            steps: latestHealth.steps || 0,
+            weight: latestHealth.weight || 0,
+            bodyFat: latestHealth.bodyFat || 0,
+            waistCircumference: latestHealth.waistCircumference || 0,
+            waistDate: latestHealth.waistDate,
+            weightDate: latestHealth.weightDate,
+            bodyFatDate: latestHealth.bodyFatDate,
+          });
+          return;
+        }
+      }
+
       const healthResponse = await fetch(
         `https://backend-production-5eec.up.railway.app/api/v1/health`,
         {
@@ -409,18 +455,14 @@ const Dashboard = () => {
       }
 
       const healthData = await healthResponse.json();
-      console.log("Health API Response:", healthData);
+      // Cache the response
+      cacheUtils.set("healthData", healthData);
 
       if (healthData.length > 0) {
-        // Sort by timestamp to get the latest entry
-        const latestHealth = healthData.sort(
-          (a: HealthData, b: HealthData) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        )[0];
-
+        const latestHealth = healthData[0];
         setTodayData({
           sleep: latestHealth.sleep || 0,
-          activity: (latestHealth.activity || 0) / 60, // Convert minutes to hours
+          activity: (latestHealth.activity || 0) / 60,
           waterIntake: latestHealth.waterIntake || 0,
           calories: latestHealth.calories || 0,
           carbs: latestHealth.carbs || 0,
@@ -435,9 +477,24 @@ const Dashboard = () => {
           bodyFatDate: latestHealth.bodyFatDate,
         });
       }
+    } catch (error) {
+      console.error("Error fetching health data:", error);
+    }
+  };
 
-      // Fetch posture data
+  const fetchPostureData = async () => {
+    try {
       const today = new Date().toISOString().split("T")[0];
+      const cacheKey = `postureData-${today}`;
+
+      // Check cache first
+      const cachedPosture = cacheUtils.get<PostureData>(cacheKey);
+      if (cachedPosture) {
+        console.log("Using cached posture data");
+        setTodayPosture(cachedPosture);
+        return;
+      }
+
       const postureResponse = await fetch(
         `https://backend-production-5eec.up.railway.app/api/v1/posture?date=${today}`,
         {
@@ -457,28 +514,51 @@ const Dashboard = () => {
 
       const postureData = await postureResponse.json();
       if (postureData.length > 0) {
+        cacheUtils.set(cacheKey, postureData[0]);
         setTodayPosture(postureData[0]);
       }
     } catch (error) {
-      console.error("Error fetching health data:", error);
+      console.error("Error fetching posture data:", error);
     }
   };
 
   const persistAccounts = async (accountsToPersist: Account[]) => {
     try {
-      const mappedAccounts = accountsToPersist.map((acc) => ({
-        accountId: acc.accountId,
-        name: acc.name,
-        balances: {
-          available: acc.balances.available || acc.balances.current || 0, // Ensure available is set
-          current: acc.balances.current || 0,
-          iso_currency_code: acc.balances.iso_currency_code || "USD",
-        },
-        type: acc.type,
-        subtype: acc.subtype,
-      }));
+      const existingAccountsMap = new Map();
+      accountsToPersist.forEach((acc) => {
+        existingAccountsMap.set(acc.accountId, acc);
+      });
 
-      console.log("Persisting accounts with proper schema:", mappedAccounts);
+      const updatedAccounts = accountsToPersist.map((account) => {
+        const existingAccount = existingAccountsMap.get(account.accountId);
+        if (existingAccount) {
+          // Update existing account
+          return {
+            ...existingAccount,
+            balances: {
+              available:
+                account.balances.available ?? account.balances.current ?? 0,
+              current: account.balances.current ?? 0,
+              iso_currency_code: account.balances.iso_currency_code ?? "USD",
+            },
+          };
+        }
+        // Create new account
+        return {
+          accountId: account.accountId,
+          name: account.name,
+          balances: {
+            available:
+              account.balances.available ?? account.balances.current ?? 0,
+            current: account.balances.current ?? 0,
+            iso_currency_code: account.balances.iso_currency_code ?? "USD",
+          },
+          type: account.type,
+          subtype: account.subtype,
+        };
+      });
+
+      console.log("Persisting accounts with proper schema:", updatedAccounts);
 
       const response = await fetch(
         "https://backend-production-5eec.up.railway.app/api/v1/financial/accounts",
@@ -488,7 +568,7 @@ const Dashboard = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.accessToken}`,
           },
-          body: JSON.stringify({ accounts: mappedAccounts }),
+          body: JSON.stringify({ accounts: updatedAccounts }),
         }
       );
 
@@ -559,6 +639,8 @@ const Dashboard = () => {
       value: todayData.steps,
       format: "steps",
       icon: <Footprints className="h-4 w-4 text-muted-foreground" />,
+      status: evaluateMetric("steps", todayData.steps),
+      goalValue: getGoalValue("steps") || 0,
     },
     {
       id: "waterIntake",
@@ -656,6 +738,31 @@ const Dashboard = () => {
     },
   ];
 
+  // Add new function to fetch historical data
+  const fetchHistoricalData = async () => {
+    try {
+      const response = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/health/history",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`History API failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      setHistoricalData(data);
+    } catch (error) {
+      console.error("Error fetching historical data:", error);
+    }
+  };
+
   return (
     <DashboardLayout
       title="Life Dashboard"
@@ -665,87 +772,128 @@ const Dashboard = () => {
     >
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cardConfigs.map(
-          (config, index) =>
+          (config) =>
             shouldShowCard(config.title) && (
               <DashboardCard
                 key={config.id}
-                className={`floating-card float-delay-${(index % 4) + 1}`}
                 title={config.title}
                 value={formatMetric(config.value, config.format)}
                 icon={config.icon}
-                additionalInfo={config.additionalInfo}
                 status={config.status}
-                goalValue={config.goalValue}
+                goalValue={config.goalValue || null}
               />
             )
         )}
       </div>
 
-      {(activeCategory === "all" || activeCategory === "finances") &&
-        accounts.length > 0 && (
-          <div className="mt-6 sm:mt-10">
-            <div className="flex items-center justify-between mb-4 px-2 sm:px-0">
-              <h2 className="text-lg font-medium">Connected Accounts</h2>
-              <button className="text-xs rounded-full py-1 px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors">
-                View All
-              </button>
-            </div>
+      {/* Add charts section */}
+      <div className="mt-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
+        <MetricsChart
+          data={historicalData}
+          title="Sleep Hours"
+          metric="sleep"
+        />
+        <MetricsChart
+          data={historicalData}
+          title="Deep Work Hours"
+          metric="deepWork"
+        />
+        <MetricsChart
+          data={historicalData}
+          title="Waist Circumference"
+          metric="waistCircumference"
+        />
+        <MetricsChart
+          data={historicalData}
+          title="Body Fat Percentage"
+          metric="bodyFat"
+        />
+        <MetricsChart
+          data={historicalData}
+          title="Daily Steps"
+          metric="steps"
+        />
+      </div>
 
-            <div className="grid gap-3">
-              {accounts.slice(0, 3).map((account) => (
-                <div
-                  key={account.accountId}
-                  className="flex items-center justify-between p-3 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg border border-white/20 dark:border-white/5 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-full bg-white/20 dark:bg-gray-700/30 backdrop-blur-sm">
-                      {account.type === "credit" ? (
-                        <CreditCard className="h-5 w-5" />
-                      ) : (
-                        <Wallet className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">{account.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {account.type} • {account.subtype}
+      {(activeCategory === "all" || activeCategory === "finances") && (
+        <div className="mt-6 sm:mt-10">
+          {accounts.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between mb-4 px-2 sm:px-0">
+                <h2 className="text-lg font-medium">Connected Accounts</h2>
+                <button className="text-xs rounded-full py-1 px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors">
+                  View All
+                </button>
+              </div>
+
+              <div className="grid gap-3">
+                {accounts.slice(0, 3).map((account) => (
+                  <div
+                    key={account.accountId}
+                    className="flex items-center justify-between p-3 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg border border-white/20 dark:border-white/5 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-full bg-white/20 dark:bg-gray-700/30 backdrop-blur-sm">
+                        {account.type === "credit" ? (
+                          <CreditCard className="h-5 w-5" />
+                        ) : (
+                          <Wallet className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {account.name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {account.type} • {account.subtype}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium text-sm">
-                      $
-                      {account.balances.current?.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium text-sm">
+                        $
+                        {account.balances.current?.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </div>
+                      <PlaidConnect
+                        onSuccess={handlePlaidSuccess}
+                        buttonText="Refresh"
+                        mode="update"
+                        institutionName={account.name}
+                        buttonClassName="text-xs rounded-full py-1 px-2 bg-gray-500/20 hover:bg-gray-500/30 text-gray-700 dark:text-gray-300"
+                      />
                     </div>
-                    <PlaidConnect
-                      onSuccess={handlePlaidSuccess}
-                      buttonText="Refresh"
-                      mode="update"
-                      institutionName={account.name}
-                      buttonClassName="text-xs rounded-full py-1 px-2 bg-gray-500/20 hover:bg-gray-500/30 text-gray-700 dark:text-gray-300"
-                    />
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {accounts.length > 3 && (
-                <button className="text-center text-xs text-indigo-500 hover:text-indigo-600 py-2">
-                  Show {accounts.length - 3} more accounts
-                </button>
-              )}
-
-              <div className="mt-3 flex justify-end">
-                <PlaidConnect
-                  onSuccess={handlePlaidSuccess}
-                  buttonText="Add Account"
-                  buttonClassName="text-xs rounded-full py-1.5 px-4 bg-indigo-500/80 text-white hover:bg-indigo-600/80 transition-colors"
-                />
+                {accounts.length > 3 && (
+                  <button className="text-center text-xs text-indigo-500 hover:text-indigo-600 py-2">
+                    Show {accounts.length - 3} more accounts
+                  </button>
+                )}
               </div>
+            </>
+          ) : (
+            <div className="text-center p-6 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg border border-white/20 dark:border-white/5">
+              <h3 className="text-lg font-medium mb-2">
+                Connect Your Bank Account
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Link your bank account to track your finances and spending
+              </p>
             </div>
+          )}
+
+          <div className="mt-3 flex justify-end">
+            <PlaidConnect
+              onSuccess={handlePlaidSuccess}
+              buttonText={accounts.length > 0 ? "Add Account" : "Connect Bank"}
+              buttonClassName="text-xs rounded-full py-1.5 px-4 bg-indigo-500/80 text-white hover:bg-indigo-600/80 transition-colors"
+            />
           </div>
-        )}
+        </div>
+      )}
 
       {(activeCategory === "all" ||
         activeCategory === "sleep" ||
