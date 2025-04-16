@@ -73,6 +73,7 @@ interface Transaction {
 }
 
 const Dashboard = () => {
+  // All hooks at the top!
   const { data: session, status } = useSession();
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -85,6 +86,14 @@ const Dashboard = () => {
   const [todayDeepWorkHours, setTodayDeepWorkHours] = useState<number>(0);
   const [activeCategory, setActiveCategory] = useState("all");
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
+  const [manualAccounts, setManualAccounts] = useState<Account[]>([]);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    name: "",
+    type: "depository",
+    subtype: "",
+    balance: "",
+  });
 
   // Define metric categories
   const metricCategories = {
@@ -124,7 +133,7 @@ const Dashboard = () => {
     );
   };
 
-  // Fetch all data on initial load
+  // All useEffect and other hooks here!
   useEffect(() => {
     const loadData = async () => {
       if (status === "authenticated" && session?.accessToken) {
@@ -152,6 +161,19 @@ const Dashboard = () => {
     loadData();
   }, [status, session?.accessToken]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("manualAccounts", JSON.stringify(manualAccounts));
+    }
+  }, [manualAccounts]);
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.accessToken) {
+      fetchManualAccounts();
+    }
+  }, [status, session?.accessToken]);
+
+  // Now do your conditional rendering
   if (status === "loading") {
     return (
       <DashboardLayout
@@ -347,79 +369,77 @@ const Dashboard = () => {
   // Function to fetch financial data
   const fetchFinancialData = async () => {
     try {
-      console.log(
-        "Starting to fetch financial data with token:",
-        session?.accessToken?.substring(0, 20) + "..."
-      );
+      console.log("Starting to fetch financial data...");
 
-      // First, fetch bank accounts
-      const bankAccountsResponse = await fetch(
-        "https://backend-production-5eec.up.railway.app/api/v1/financial/bank-accounts",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
-      );
-
-      console.log(
-        "Bank accounts response status:",
-        bankAccountsResponse.status
-      );
-
-      if (bankAccountsResponse.ok) {
-        const bankAccountsData = await bankAccountsResponse.json();
-        console.log("Raw bank accounts data:", bankAccountsData);
-        setBankAccounts(bankAccountsData.bankAccounts || []);
-      }
-
-      // Then, fetch financial data
-      const financialResponse = await fetch(
-        "https://backend-production-5eec.up.railway.app/api/v1/financial",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
-      );
-
-      console.log("Financial response status:", financialResponse.status);
+      // Fetch both financial and manual accounts data in parallel
+      const [financialResponse, manualAccountsResponse] = await Promise.all([
+        fetch(
+          "https://backend-production-5eec.up.railway.app/api/v1/financial",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.accessToken}`,
+            },
+          }
+        ),
+        fetch(
+          "https://backend-production-5eec.up.railway.app/api/v1/financial/manual-accounts",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.accessToken}`,
+            },
+          }
+        ),
+      ]);
 
       if (!financialResponse.ok) {
         throw new Error(`Financial fetch failed: ${financialResponse.status}`);
       }
 
       const financialData = await financialResponse.json();
-      console.log("Raw financial data:", financialData);
+      const manualAccountsData = await manualAccountsResponse.json();
 
+      console.log("Financial data:", financialData);
+      console.log("Manual accounts data:", manualAccountsData);
+
+      // Update accounts state
       if (financialData.accounts && Array.isArray(financialData.accounts)) {
-        console.log("Setting accounts:", financialData.accounts);
         setAccounts(financialData.accounts);
-
-        // Calculate net worth with proper handling of credit accounts
-        const calculatedNetWorth = financialData.accounts.reduce(
-          (sum: number, acc: Account) => {
-            const balance = acc.balances.current || 0;
-            const contribution = acc.type === "credit" ? -balance : balance;
-
-            console.log(
-              `Account ${acc.name} (${acc.type}): ${
-                contribution > 0 ? "+" : ""
-              }${contribution}`
-            );
-
-            return sum + contribution;
-          },
-          0
-        );
-        setNetWorth(calculatedNetWorth);
-      } else {
-        console.warn("No accounts array in financial data:", financialData);
       }
+
+      // Update manual accounts state
+      const manualAccounts = manualAccountsData.accounts || [];
+      setManualAccounts(manualAccounts);
+
+      // Calculate net worth with ALL accounts
+      const allAccounts = [
+        ...(financialData.accounts || []),
+        ...manualAccounts,
+      ];
+
+      console.log("Calculating net worth with accounts:", allAccounts);
+
+      const calculatedNetWorth = allAccounts.reduce(
+        (sum: number, acc: Account) => {
+          const balance = acc.balances.current || 0;
+          const contribution = acc.type === "credit" ? -balance : balance;
+
+          console.log(
+            `Account ${acc.name} (${acc.type}): ${
+              contribution > 0 ? "+" : ""
+            }${contribution} (Original balance: ${balance})`
+          );
+
+          return sum + contribution;
+        },
+        0
+      );
+
+      console.log("Final calculated net worth:", calculatedNetWorth);
+      setNetWorth(calculatedNetWorth);
 
       // Handle today's transactions for spending
       if (Array.isArray(financialData.transactions)) {
@@ -639,11 +659,11 @@ const Dashboard = () => {
       icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
     },
     {
-      id: "checkingBalance",
-      title: "Checking Account Balance",
-      value: checkingBalance,
+      id: "netWorth",
+      title: "Net Worth",
+      value: netWorth,
       format: "currency",
-      icon: <Wallet className="h-4 w-4 text-muted-foreground" />,
+      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
     },
     {
       id: "sleep",
@@ -757,13 +777,6 @@ const Dashboard = () => {
       status: evaluateMetric("deepWork", todayDeepWorkHours),
       goalValue: getGoalValue("deepWork") || 0,
     },
-    {
-      id: "netWorth",
-      title: "Net Worth",
-      value: netWorth,
-      format: "currency",
-      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
-    },
   ];
 
   // Add new function to fetch historical data
@@ -788,6 +801,98 @@ const Dashboard = () => {
       setHistoricalData(data);
     } catch (error) {
       console.error("Error fetching historical data:", error);
+    }
+  };
+
+  const fetchManualAccounts = async () => {
+    try {
+      const response = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial/manual-accounts",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+      const data = await response.json();
+      setManualAccounts(data.accounts || []);
+    } catch (error) {
+      console.error("Error fetching manual accounts:", error);
+    }
+  };
+
+  const addManualAccount = async (account: Account) => {
+    try {
+      console.log("Attempting to add manual account:", account);
+
+      const response = await fetch(
+        "https://backend-production-5eec.up.railway.app/api/v1/financial/manual-accounts",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          body: JSON.stringify(account),
+        }
+      );
+
+      // Log the response status and headers for debugging
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers));
+
+      // Try to parse the response as text first
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+
+      // Try to parse as JSON if possible
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(
+          `Invalid JSON response: ${responseText.substring(0, 100)}...`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to add manual account: ${
+            responseData.error || response.statusText
+          }`
+        );
+      }
+
+      // Refresh both manual accounts and financial data
+      await Promise.all([fetchManualAccounts(), fetchFinancialData()]);
+      return true;
+    } catch (error) {
+      console.error("Error adding manual account:", error);
+      alert(`Failed to add account: ${error.message}`);
+      return false;
+    }
+  };
+
+  const removeManualAccount = async (accountId: string) => {
+    try {
+      const response = await fetch(
+        `https://backend-production-5eec.up.railway.app/api/v1/manual-accounts/${accountId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+      if (!response.ok) throw new Error("Failed to delete manual account");
+
+      // Refresh both manual accounts and financial data
+      await Promise.all([fetchManualAccounts(), fetchFinancialData()]);
+    } catch (error) {
+      console.error("Error deleting manual account:", error);
     }
   };
 
@@ -930,6 +1035,140 @@ const Dashboard = () => {
               buttonClassName="text-xs rounded-full py-1.5 px-4 bg-indigo-500/80 text-white hover:bg-indigo-600/80 transition-colors"
             />
           </div>
+
+          {/* Manual Accounts Section */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-md font-medium">Manual Accounts</h3>
+              <button
+                className="text-xs rounded-full py-1 px-3 bg-indigo-500/80 text-white hover:bg-indigo-600/80"
+                onClick={() => setShowManualForm(true)}
+              >
+                Add Account Manually
+              </button>
+            </div>
+            {manualAccounts.length === 0 && (
+              <div className="text-xs text-gray-500">
+                No manual accounts added.
+              </div>
+            )}
+            <div className="grid gap-3">
+              {manualAccounts.map((account) => (
+                <div
+                  key={account.accountId}
+                  className="flex items-center justify-between p-3 bg-white/30 dark:bg-gray-800/20 rounded-lg border border-white/20 dark:border-white/5"
+                >
+                  <div>
+                    <div className="font-medium text-sm">{account.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {account.type} {account.subtype && `• ${account.subtype}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="font-medium text-sm">
+                      $
+                      {account.balances.current?.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                    <button
+                      className="text-xs text-red-500 hover:underline"
+                      onClick={() => removeManualAccount(account.accountId)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual Account Form Modal */}
+          {showManualForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md">
+                <h4 className="font-semibold mb-4">Add Manual Account</h4>
+                <div className="space-y-3">
+                  <input
+                    className="w-full border rounded px-2 py-1"
+                    placeholder="Account Name"
+                    value={manualForm.name}
+                    onChange={(e) =>
+                      setManualForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                  />
+                  <select
+                    className="w-full border rounded px-2 py-1"
+                    value={manualForm.type}
+                    onChange={(e) =>
+                      setManualForm((f) => ({ ...f, type: e.target.value }))
+                    }
+                  >
+                    <option value="depository">Checking/Savings</option>
+                    <option value="credit">Credit Card</option>
+                    <option value="loan">Loan</option>
+                    <option value="investment">Investment</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <input
+                    className="w-full border rounded px-2 py-1"
+                    placeholder="Subtype (optional)"
+                    value={manualForm.subtype}
+                    onChange={(e) =>
+                      setManualForm((f) => ({ ...f, subtype: e.target.value }))
+                    }
+                  />
+                  <input
+                    className="w-full border rounded px-2 py-1"
+                    placeholder="Balance"
+                    type="number"
+                    value={manualForm.balance}
+                    onChange={(e) =>
+                      setManualForm((f) => ({ ...f, balance: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+                    onClick={() => setShowManualForm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded bg-indigo-500 text-white"
+                    onClick={async () => {
+                      const newAccount = {
+                        accountId: `manual-${Date.now()}`,
+                        name: manualForm.name,
+                        type: manualForm.type,
+                        subtype: manualForm.subtype || "general",
+                        balances: {
+                          current: Number(manualForm.balance),
+                          available: Number(manualForm.balance),
+                          iso_currency_code: "USD",
+                        },
+                      };
+
+                      const success = await addManualAccount(newAccount);
+                      if (success) {
+                        setManualForm({
+                          name: "",
+                          type: "depository",
+                          subtype: "",
+                          balance: "",
+                        });
+                        setShowManualForm(false);
+                      }
+                    }}
+                    disabled={!manualForm.name || !manualForm.balance}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
