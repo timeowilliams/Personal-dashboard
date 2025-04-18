@@ -877,8 +877,9 @@ const Dashboard = () => {
 
   const removeManualAccount = async (accountId: string) => {
     try {
+      console.log("Attempting to remove manual account:", accountId);
       const response = await fetch(
-        `https://backend-production-5eec.up.railway.app/api/v1/manual-accounts/${accountId}`,
+        `https://backend-production-5eec.up.railway.app/api/v1/financial/manual-accounts/${accountId}`,
         {
           method: "DELETE",
           headers: {
@@ -887,12 +888,23 @@ const Dashboard = () => {
           },
         }
       );
-      if (!response.ok) throw new Error("Failed to delete manual account");
+
+      // Log response for debugging
+      console.log("Remove account response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to delete manual account: ${response.statusText}`
+        );
+      }
 
       // Refresh both manual accounts and financial data
       await Promise.all([fetchManualAccounts(), fetchFinancialData()]);
+
+      console.log("Successfully removed account and refreshed data");
     } catch (error) {
       console.error("Error deleting manual account:", error);
+      alert(`Failed to remove account: ${error.message}`);
     }
   };
 
